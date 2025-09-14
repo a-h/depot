@@ -7,15 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-h/depot/db"
 	loghandler "github.com/a-h/depot/handlers/log"
 	narhandler "github.com/a-h/depot/handlers/nar"
 	narinfohandler "github.com/a-h/depot/handlers/narinfo"
 	nixcacheinfo "github.com/a-h/depot/handlers/nixcacheinfo"
+	"github.com/nix-community/go-nix/pkg/sqlite/nix_v10"
 )
 
-func New(log *slog.Logger, db *db.DB) http.Handler {
-	nci := nixcacheinfo.New(log, db)
+func New(log *slog.Logger, db *nix_v10.Queries, storePath string) http.Handler {
+	nci := nixcacheinfo.New(log, storePath)
 	nih := narinfohandler.New(log, db)
 	nh := narhandler.New(log, db)
 	lh := loghandler.New(log)

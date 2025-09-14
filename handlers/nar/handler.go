@@ -3,6 +3,8 @@ package nar
 import (
 	"bytes"
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -10,10 +12,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/a-h/depot/db"
+	"github.com/nix-community/go-nix/pkg/sqlite/nix_v10"
 )
 
-func New(log *slog.Logger, db *db.DB) Handler {
+func New(log *slog.Logger, db *nix_v10.Queries) Handler {
 	return Handler{
 		log: log,
 		db:  db,
@@ -22,7 +24,7 @@ func New(log *slog.Logger, db *db.DB) Handler {
 
 type Handler struct {
 	log *slog.Logger
-	db  *db.DB
+	db  *nix_v10.Queries
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -48,23 +50,23 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		hashPart = split[0]
 	}
 
-	storePath, ok, err := h.db.QueryPathFromHashPart(r.Context(), hashPart)
-	if err != nil {
+	storePath, err := h.db.QueryPathFromHashPart(r.Context(), hashPart)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		h.log.Error("failed to query path from hash part", slog.String("hashPart", hashPart), slog.Any("error", err))
 		http.Error(w, fmt.Sprintf("failed to query path: %v\n", err), http.StatusInternalServerError)
 		return
 	}
-	if !ok {
+	if storePath == "" {
 		http.Error(w, fmt.Sprintf("path not found for %s\n", hashPart), http.StatusNotFound)
 		return
 	}
-	pathInfo, ok, err := h.db.QueryPathInfo(r.Context(), storePath)
-	if err != nil {
+	pathInfo, err := h.db.QueryPathInfo(r.Context(), storePath)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		h.log.Error("failed to query path info", slog.String("storePath", storePath), slog.Any("error", err))
 		http.Error(w, fmt.Sprintf("failed to query path info: %v\n", err), http.StatusInternalServerError)
 		return
 	}
-	if !ok {
+	if pathInfo.Hash == "" {
 		http.Error(w, fmt.Sprintf("path info not found for %s\n", storePath), http.StatusNotFound)
 		return
 	}
@@ -77,7 +79,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	// The Perl implementation sets the Content-Type to text/plain,
 	// but it should be application/octet-stream.
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", pathInfo.NarSize))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", pathInfo.Narsize.Int64))
 
 	stderr := bytes.NewBuffer(nil)
 	if err = dumpPath(r.Context(), w, stderr, storePath); err != nil {

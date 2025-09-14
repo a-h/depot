@@ -1,14 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 
-	"github.com/a-h/depot/db"
 	"github.com/a-h/depot/handlers"
 	"github.com/alecthomas/kong"
+	"github.com/nix-community/go-nix/pkg/sqlite"
 )
 
 type Globals struct {
@@ -32,18 +32,19 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	db, closer, err := db.New(cmd.StorePath)
+	uri := filepath.Join(cmd.StorePath, "var", "nix", "db", "db.sqlite")
+	sqlDB, db, err := sqlite.NixV10(uri)
 	if err != nil {
-		log.Error("failed to open Nix database", slog.Any("error", err))
-		return fmt.Errorf("failed to open Nix database: %w", err)
+		return err
 	}
-	defer closer()
+	defer sqlDB.Close()
 
 	// Create HTTP server.
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: handlers.New(log, db),
+		Handler: handlers.New(log, db, cmd.StorePath),
 	}
+	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("storePath", cmd.StorePath))
 	return s.ListenAndServe()
 }
 
