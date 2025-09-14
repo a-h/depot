@@ -7,7 +7,22 @@ A Nix binary cache, written in Go.
 ### build
 
 ```bash
-go build -o bin/depot
+go build -o depot ./cmd/depot
+```
+
+### run
+
+```bash
+go run ./cmd/depot
+```
+
+### serve
+
+Interactive: true
+
+```bash
+go run ./cmd/depot serve --verbose
+```
 
 ### nix-build
 

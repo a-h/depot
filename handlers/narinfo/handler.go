@@ -80,6 +80,8 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(buf, "Deriver: %s\n", pathInfo.Deriver)
 	}
 
+	h.log.Debug(r.URL.String(), slog.String("storePath", storePath))
+
 	// Send the output.
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", buf.Len()))
 	_, err = w.Write(buf.Bytes())

@@ -12,11 +12,11 @@ import (
 )
 
 type Globals struct {
+	Verbose bool `help:"Enable verbose logging" short:"v" default:"false"`
 }
 
 type CLI struct {
 	Globals
-
 	Serve ServeCmd `cmd:"" help:"Serve local Nix store as a publicly accessible"`
 }
 
@@ -26,7 +26,11 @@ type ServeCmd struct {
 }
 
 func (cmd *ServeCmd) Run(globals *Globals) error {
-	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	opts := &slog.HandlerOptions{}
+	if globals.Verbose {
+		opts.Level = slog.LevelDebug
+	}
+	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
 	db, closer, err := db.New(cmd.StorePath)
 	if err != nil {
