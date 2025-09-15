@@ -1,36 +1,53 @@
 package nar
 
 import (
-	"bytes"
-	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"os/exec"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/nix-community/go-nix/pkg/sqlite/nix_v10"
 )
 
-func New(log *slog.Logger, db *nix_v10.Queries) Handler {
+func New(log *slog.Logger, db *nix_v10.Queries, storePath string) Handler {
 	return Handler{
-		log: log,
-		db:  db,
+		log:       log,
+		db:        db,
+		storePath: storePath,
 	}
 }
 
 type Handler struct {
-	log *slog.Logger
-	db  *nix_v10.Queries
+	log       *slog.Logger
+	db        *nix_v10.Queries
+	storePath string
+}
+
+// getFileExtensionAndContentType extracts the file extension from the URL path
+// and returns both the extension and corresponding content type.
+func getFileExtensionAndContentType(path string) (string, string) {
+	if strings.HasSuffix(path, ".nar.xz") {
+		return ".nar.xz", "application/x-xz"
+	}
+	if strings.HasSuffix(path, ".nar.gz") {
+		return ".nar.gz", "application/gzip"
+	}
+	if strings.HasSuffix(path, ".nar.bz2") {
+		return ".nar.bz2", "application/x-bzip2"
+	}
+	return ".nar", "application/octet-stream"
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		h.Get(w, r)
+		h.GetHead(w, r)
+		return
+	case http.MethodHead:
+		h.GetHead(w, r)
 		return
 	case http.MethodPut:
 		h.Put(w, r)
@@ -39,67 +56,92 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, fmt.Sprintf("method %s not allowed", r.Method), http.StatusMethodNotAllowed)
 }
 
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-	// Get the hash part.
+func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
+	// Get the hash part - this is the file hash, not the store path hash.
 	hashPart := r.PathValue("hashpart")
 
-	// Get the expected Nar hash if the filename has one.
+	// Remove any NAR hash suffix if present (e.g., "filehash-narhash" -> "filehash").
+	if split := strings.SplitN(hashPart, "-", 2); len(split) == 2 {
+		hashPart = split[0]
+	}
+
+	// Determine the file extension from the URL path
+	fileExt, contentType := getFileExtensionAndContentType(r.URL.Path)
+
+	// Check if the NAR file exists on disk
+	narPath := filepath.Join(h.storePath, "nar", hashPart+fileExt)
+	file, err := os.Open(narPath)
+	if err != nil {
+		h.log.Error("failed to open NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
+		http.Error(w, "NAR file not found", http.StatusNotFound)
+		return
+	}
+	defer file.Close()
+
+	// Get file info for content length
+	fileInfo, err := file.Stat()
+	if err != nil {
+		h.log.Error("failed to stat NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
+		http.Error(w, "failed to get NAR file info", http.StatusInternalServerError)
+		return
+	}
+
+	// Set appropriate headers
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+
+	if r.Method == http.MethodHead {
+		// Skip writing body for HEAD requests.
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	_, err = io.Copy(w, file)
+	if err != nil {
+		h.log.Error("failed to serve NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
+		return
+	}
+}
+
+func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
+	hashPart := r.PathValue("hashpart")
 	var expectedNarHash string
 	if split := strings.SplitN(hashPart, "-", 2); len(split) == 2 {
 		expectedNarHash = "sha256:" + split[1]
 		hashPart = split[0]
 	}
 
-	storePath, err := h.db.QueryPathFromHashPart(r.Context(), hashPart)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		h.log.Error("failed to query path from hash part", slog.String("hashPart", hashPart), slog.Any("error", err))
-		http.Error(w, fmt.Sprintf("failed to query path: %v\n", err), http.StatusInternalServerError)
-		return
-	}
-	if storePath == "" {
-		http.Error(w, fmt.Sprintf("path not found for %s\n", hashPart), http.StatusNotFound)
-		return
-	}
-	pathInfo, err := h.db.QueryPathInfo(r.Context(), storePath)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		h.log.Error("failed to query path info", slog.String("storePath", storePath), slog.Any("error", err))
-		http.Error(w, fmt.Sprintf("failed to query path info: %v\n", err), http.StatusInternalServerError)
-		return
-	}
-	if pathInfo.Hash == "" {
-		http.Error(w, fmt.Sprintf("path info not found for %s\n", storePath), http.StatusNotFound)
-		return
-	}
-	if expectedNarHash != "" && expectedNarHash != pathInfo.Hash {
-		h.log.Warn("incorrect NAR hash", slog.String("expected", expectedNarHash), slog.String("actual", pathInfo.Hash))
-		http.Error(w, "Incorrect NAR hash. Maybe the path has been recreated.", http.StatusNotFound)
+	h.log.Info("uploading NAR", slog.String("hashPart", hashPart), slog.String("expectedNarHash", expectedNarHash))
+
+	fileExt, _ := getFileExtensionAndContentType(r.URL.Path)
+	if err := h.addNarToStore(r.Body, hashPart, fileExt); err != nil {
+		h.log.Error("failed to add NAR to store", slog.String("hashPart", hashPart), slog.Any("error", err))
+		http.Error(w, "failed to store NAR", http.StatusInternalServerError)
 		return
 	}
 
-	// The Perl implementation sets the Content-Type to text/plain,
-	// but it should be application/octet-stream.
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", pathInfo.Narsize.Int64))
+	h.log.Info("NAR uploaded", slog.String("hashPart", hashPart))
 
-	stderr := bytes.NewBuffer(nil)
-	if err = dumpPath(r.Context(), w, stderr, storePath); err != nil {
-		h.log.Error("failed to dump path", slog.String("storePath", storePath), slog.String("stderr", stderr.String()), slog.Any("error", err))
-		return
-	}
+	w.WriteHeader(http.StatusCreated)
 }
 
-func dumpPath(ctx context.Context, stdout, stderr io.Writer, ref string) (err error) {
-	nixPath, err := exec.LookPath("nix")
+func (h *Handler) addNarToStore(r io.Reader, hashPart string, fileExt string) error {
+	narDir := filepath.Join(h.storePath, "nar")
+	if err := os.MkdirAll(narDir, 0755); err != nil {
+		return fmt.Errorf("failed to create NAR storage directory: %w", err)
+	}
+
+	narPath := filepath.Join(narDir, hashPart+fileExt)
+	file, err := os.Create(narPath)
 	if err != nil {
-		return fmt.Errorf("failed to find nix on path: %w", err)
+		return fmt.Errorf("failed to create NAR file: %w", err)
 	}
-	cmdArgs := []string{"store", "dump-path", ref}
-	cmd := exec.CommandContext(ctx, nixPath, cmdArgs...)
-	cmd.Stderr = stderr
-	cmd.Stdout = stdout
-	return cmd.Run()
-}
+	defer file.Close()
 
-func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "PUT not implemented", http.StatusNotImplemented)
+	_, err = io.Copy(file, r)
+	if err != nil {
+		return fmt.Errorf("failed to write NAR file: %w", err)
+	}
+
+	return nil
 }

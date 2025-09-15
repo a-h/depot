@@ -1,2 +1,6 @@
 .direnv
-depot
+/depot
+/main
+/coverage
+/coverage.html
+/coverage.out

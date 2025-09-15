@@ -4,11 +4,10 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 
+	"github.com/a-h/depot/db"
 	"github.com/a-h/depot/handlers"
 	"github.com/alecthomas/kong"
-	"github.com/nix-community/go-nix/pkg/sqlite"
 )
 
 type Globals struct {
@@ -21,8 +20,10 @@ type CLI struct {
 }
 
 type ServeCmd struct {
-	ListenAddr string `help:"Address to listen on" default:":8080"`
-	StorePath  string `help:"Path to Nix store" default:"/nix"`
+	ListenAddr  string `help:"Address to listen on" default:":8080"`
+	StorePath   string `help:"Path to Nix store" default:"./depot-nix-store"`
+	CacheURL    string `help:"URL of the binary cache" default:"http://localhost:8080"`
+	UploadToken string `help:"Token required for uploads (if empty, uploads are not protected)" env:"DEPOT_UPLOAD_TOKEN"`
 }
 
 func (cmd *ServeCmd) Run(globals *Globals) error {
@@ -32,8 +33,7 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	uri := filepath.Join(cmd.StorePath, "var", "nix", "db", "db.sqlite")
-	sqlDB, db, err := sqlite.NixV10(uri)
+	sqlDB, nixDB, cacheDB, err := db.Init(cmd.StorePath, cmd.CacheURL)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	// Create HTTP server.
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: handlers.New(log, db, cmd.StorePath),
+		Handler: handlers.New(log, nixDB, cacheDB, cmd.StorePath, cmd.UploadToken),
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("storePath", cmd.StorePath))
 	return s.ListenAndServe()

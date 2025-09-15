@@ -1,6 +1,49 @@
 # github.com/a-h/depot
 
-A Nix binary cache, written in Go.
+A Nix binary cache, written in Go, with upload support.
+
+## Features
+
+- **Read access**: Serve NAR files and narinfo metadata from your local Nix store
+- **Upload support**: Accept uploads of compressed NAR files (.nar, .nar.xz, .nar.gz, .nar.bz2) and narinfo metadata via HTTP PUT
+- **Authentication**: Optional token-based authentication for uploads
+- **Compression support**: Automatic decompression of uploaded NAR files
+- **NAR processing**: Uses go-nix library for proper NAR file parsing and extraction
+- **Logging**: Structured JSON logging with configurable verbosity
+
+## Configuration
+
+### Upload Authentication
+
+To secure uploads, set the `DEPOT_UPLOAD_TOKEN` environment variable or use the `--upload-token` flag:
+
+```bash
+export DEPOT_UPLOAD_TOKEN="your-secret-token"
+go run ./cmd/depot serve --verbose
+```
+
+When a token is configured, all upload operations (PUT requests) require an `Authorization` header:
+
+```bash
+# Using Bearer token format
+curl -H "Authorization: Bearer your-secret-token" -X PUT --data-binary @file.nar http://localhost:8080/abc123.nar
+
+# Or simple token format
+curl -H "Authorization: your-secret-token" -X PUT --data-binary @file.nar http://localhost:8080/abc123.nar
+```
+
+If no token is configured, uploads are allowed without authentication (not recommended for production).
+
+### Supported Upload Formats
+
+The server supports uploading NAR files in multiple compression formats:
+
+- `.nar` - Uncompressed NAR files
+- `.nar.xz` - XZ-compressed NAR files (most common with Nix)
+- `.nar.gz` - Gzip-compressed NAR files  
+- `.nar.bz2` - Bzip2-compressed NAR files
+
+The server automatically detects the compression format from the URL and decompresses the content before processing.
 
 ## Tasks
 
@@ -64,7 +107,14 @@ docker run -p 8080:8080 app:latest
 
 ### push-store-path
 
+Push a store path to the binary cache. If authentication is enabled, you'll need to configure the token:
+
 ```bash
+# Without authentication
+nix copy --to http://localhost:8080 `nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl --raw` --refresh
+
+# With authentication (set token in environment)
+export DEPOT_UPLOAD_TOKEN="your-secret-token"
 nix copy --to http://localhost:8080 `nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl --raw` --refresh
 ```
 

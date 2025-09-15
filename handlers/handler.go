@@ -7,17 +7,19 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/a-h/depot/handlers/auth"
 	loghandler "github.com/a-h/depot/handlers/log"
 	narhandler "github.com/a-h/depot/handlers/nar"
 	narinfohandler "github.com/a-h/depot/handlers/narinfo"
 	nixcacheinfo "github.com/a-h/depot/handlers/nixcacheinfo"
+	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
 	"github.com/nix-community/go-nix/pkg/sqlite/nix_v10"
 )
 
-func New(log *slog.Logger, db *nix_v10.Queries, storePath string) http.Handler {
+func New(log *slog.Logger, nixDB *nix_v10.Queries, cacheDB *binary_cache_v6.Queries, storePath string, uploadToken string) http.Handler {
 	nci := nixcacheinfo.New(log, storePath)
-	nih := narinfohandler.New(log, db)
-	nh := narhandler.New(log, db)
+	nih := narinfohandler.New(log, nixDB, cacheDB, 1)
+	nh := narhandler.New(log, nixDB, storePath)
 	lh := loghandler.New(log)
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,12 +28,12 @@ func New(log *slog.Logger, db *nix_v10.Queries, storePath string) http.Handler {
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, ".narinfo") {
-			r.SetPathValue("hashpart", getHashPart(r))
+			r.SetPathValue("hashpart", getHashPart(r.URL.Path))
 			nih.ServeHTTP(w, r)
 			return
 		}
-		if strings.HasSuffix(r.URL.Path, ".nar") {
-			r.SetPathValue("hashpart", getHashPart(r))
+		if strings.HasPrefix(r.URL.Path, "/nar/") && (strings.HasSuffix(r.URL.Path, ".nar") || strings.HasSuffix(r.URL.Path, ".nar.xz") || strings.HasSuffix(r.URL.Path, ".nar.bz2") || strings.HasSuffix(r.URL.Path, ".nar.gz")) {
+			r.SetPathValue("hashpart", getHashPart(r.URL.Path))
 			nh.ServeHTTP(w, r)
 			return
 		}
@@ -45,11 +47,14 @@ func New(log *slog.Logger, db *nix_v10.Queries, storePath string) http.Handler {
 		http.Error(w, "not found", http.StatusNotFound)
 	})
 
-	return NewLogger(log, h)
+	authHandler := auth.NewMiddleware(log, uploadToken, h)
+	return NewLogger(log, authHandler)
 }
 
-func getHashPart(r *http.Request) string {
-	file := path.Base(r.URL.Path)
-	ext := strings.ToLower(path.Ext(file))
-	return strings.TrimSuffix(file, ext)
+func getHashPart(urlPath string) string {
+	file := path.Base(urlPath)
+	if dotIndex := strings.Index(file, "."); dotIndex != -1 {
+		return file[:dotIndex]
+	}
+	return file
 }
