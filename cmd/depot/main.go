@@ -33,7 +33,7 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	sqlDB, nixDB, cacheDB, err := db.Init(cmd.StorePath, cmd.CacheURL)
+	sqlDB, cacheDB, err := db.Init(cmd.StorePath, cmd.CacheURL)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	// Create HTTP server.
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: handlers.New(log, nixDB, cacheDB, cmd.StorePath, cmd.UploadToken),
+		Handler: handlers.New(log, cacheDB, cmd.StorePath, cmd.UploadToken),
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("storePath", cmd.StorePath))
 	return s.ListenAndServe()

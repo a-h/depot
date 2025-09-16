@@ -13,6 +13,9 @@ type Middleware struct {
 }
 
 func NewMiddleware(log *slog.Logger, token string, next http.Handler) *Middleware {
+	if token == "" {
+		log.Warn("no upload token configured - uploads are not protected")
+	}
 	return &Middleware{
 		log:   log,
 		token: token,
@@ -27,9 +30,8 @@ func (m *Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If no token is configured, allow all writes (for backward compatibility)
+	// If no token is configured, allow all writes (for backward compatibility).
 	if m.token == "" {
-		m.log.Warn("no upload token configured - uploads are not protected")
 		m.next.ServeHTTP(w, r)
 		return
 	}

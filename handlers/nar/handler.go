@@ -8,21 +8,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/nix-community/go-nix/pkg/sqlite/nix_v10"
 )
 
-func New(log *slog.Logger, db *nix_v10.Queries, storePath string) Handler {
+func New(log *slog.Logger, storePath string) Handler {
 	return Handler{
 		log:       log,
-		db:        db,
 		storePath: storePath,
 	}
 }
 
 type Handler struct {
 	log       *slog.Logger
-	db        *nix_v10.Queries
 	storePath string
 }
 
@@ -65,20 +61,22 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 		hashPart = split[0]
 	}
 
-	// Determine the file extension from the URL path
 	fileExt, contentType := getFileExtensionAndContentType(r.URL.Path)
 
-	// Check if the NAR file exists on disk
 	narPath := filepath.Join(h.storePath, "nar", hashPart+fileExt)
 	file, err := os.Open(narPath)
 	if err != nil {
-		h.log.Error("failed to open NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
+		if !os.IsNotExist(err) {
+			h.log.Error("failed to open NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		h.log.Debug("NAR file not found", slog.String("narPath", narPath), slog.String("hashPart", hashPart))
 		http.Error(w, "NAR file not found", http.StatusNotFound)
 		return
 	}
 	defer file.Close()
 
-	// Get file info for content length
 	fileInfo, err := file.Stat()
 	if err != nil {
 		h.log.Error("failed to stat NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
@@ -86,7 +84,6 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set appropriate headers
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 
@@ -116,7 +113,7 @@ func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
 	fileExt, _ := getFileExtensionAndContentType(r.URL.Path)
 	if err := h.addNarToStore(r.Body, hashPart, fileExt); err != nil {
 		h.log.Error("failed to add NAR to store", slog.String("hashPart", hashPart), slog.Any("error", err))
-		http.Error(w, "failed to store NAR", http.StatusInternalServerError)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 

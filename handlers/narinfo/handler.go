@@ -13,13 +13,11 @@ import (
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/nixhash"
 	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
-	"github.com/nix-community/go-nix/pkg/sqlite/nix_v10"
 )
 
-func New(log *slog.Logger, nixDB *nix_v10.Queries, cacheDB *binary_cache_v6.Queries, cache int64) Handler {
+func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, cache int64) Handler {
 	return Handler{
 		log:     log,
-		nixDB:   nixDB,
 		cacheDB: cacheDB,
 		cache:   cache,
 	}
@@ -27,7 +25,6 @@ func New(log *slog.Logger, nixDB *nix_v10.Queries, cacheDB *binary_cache_v6.Quer
 
 type Handler struct {
 	log     *slog.Logger
-	nixDB   *nix_v10.Queries
 	cacheDB *binary_cache_v6.Queries
 	cache   int64
 }
@@ -62,6 +59,7 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(narRows) == 0 {
 		http.Error(w, fmt.Sprintf("path not found for: %s\n", hashPart), http.StatusNotFound)
+		return
 	}
 
 	w.Header().Set("Content-Type", "text/x-nix-narinfo")

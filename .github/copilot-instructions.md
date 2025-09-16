@@ -9,3 +9,4 @@ When writing code, please ensure that:
 - Use `defer r.Body.Close()` to ensure request bodies are closed.
 - Run `xc -s` to list available tasks.
 - Run tests `xc test` to verify correctness.
+- Follow the Go line-of-sight principle.

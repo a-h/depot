@@ -123,3 +123,23 @@ nix copy --to http://localhost:8080 `nix eval github:NixOS/nixpkgs/8cd5ce828d5d1
 ```bash
 nix store ls --store http://localhost:8080 --recursive /nix/store/4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05
 ```
+
+### test
+
+interactive: true
+
+Run all tests including integration tests:
+
+```bash
+go test ./... -v -coverprofile=coverage.out -timeout 5m
+```
+
+### test-coverage-summary
+
+interactive: true
+
+Show coverage summary:
+
+```bash
+go tool cover -func=coverage.out | grep total
+```

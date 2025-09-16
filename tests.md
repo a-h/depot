@@ -52,23 +52,28 @@ The source code of the Nix flake should end up in the store.
 
 ## Testing process
 
-For this project, ideally, I want to run integration tests with the Nix CLI.
+This project uses Go integration tests with the Nix CLI.
 
-Let's start with bash scripts in a testscripts folder, one file per test case.
-
-For example, to use `nix copy --to $PWD/temp-test $FROM_CACHE` and check that the values are copied down.
-
-Build a Go binary with code coverage:
+The tests are located in `integration/integration_test.go` and can be run with:
 
 ```bash
-go build -cover -o ./coverage/depot ./cmd/depot
+go test ./integration -v
 ```
 
-Run the server.
+For test coverage:
 
 ```bash
-GOCOVERDIR=coverage ./coverage/depot-cover serve
+go test -cover ./integration -v
 ```
+
+The integration tests start an in-process depot server and use the real Nix CLI to test operations like:
+
+- Uploading packages from public cache
+- Copying derivations
+- Archiving flakes
+- Round-trip copy operations
+
+Each test validates both server functionality and proper narinfo parsing using the go-nix library.
 
 Then, run integration unit tests etc.
 

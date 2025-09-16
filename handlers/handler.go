@@ -13,13 +13,12 @@ import (
 	narinfohandler "github.com/a-h/depot/handlers/narinfo"
 	nixcacheinfo "github.com/a-h/depot/handlers/nixcacheinfo"
 	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
-	"github.com/nix-community/go-nix/pkg/sqlite/nix_v10"
 )
 
-func New(log *slog.Logger, nixDB *nix_v10.Queries, cacheDB *binary_cache_v6.Queries, storePath string, uploadToken string) http.Handler {
+func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, storePath string, uploadToken string) http.Handler {
 	nci := nixcacheinfo.New(log, storePath)
-	nih := narinfohandler.New(log, nixDB, cacheDB, 1)
-	nh := narhandler.New(log, nixDB, storePath)
+	nih := narinfohandler.New(log, cacheDB, 1)
+	nh := narhandler.New(log, storePath)
 	lh := loghandler.New(log)
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

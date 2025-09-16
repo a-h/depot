@@ -4,3 +4,5 @@
 /coverage
 /coverage.html
 /coverage.out
+/depot-nix-store
+/integration/test-store-*

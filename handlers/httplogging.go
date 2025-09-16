@@ -21,12 +21,17 @@ func NewLogger(log *slog.Logger, next http.Handler) *Logger {
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
-	status int
-	size   int
+	status        int
+	size          int
+	headerWritten bool
 }
 
 func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	if lrw.headerWritten {
+		return
+	}
 	lrw.status = code
+	lrw.headerWritten = true
 	lrw.ResponseWriter.WriteHeader(code)
 }
 
@@ -51,7 +56,9 @@ func (l *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		dur := time.Since(start).Milliseconds()
 		if rec := recover(); rec != nil {
 			l.log.Error(msg, slog.Any("panic", rec), slog.Int("status", http.StatusInternalServerError), slog.Int64("ms", dur))
-			http.Error(lrw, "internal server error", http.StatusInternalServerError)
+			if !lrw.headerWritten {
+				http.Error(lrw, "internal server error", http.StatusInternalServerError)
+			}
 			return
 		}
 		l.log.Info(msg, slog.Int("status", lrw.status), slog.Int("bytes", lrw.size), slog.Int64("ms", dur))
