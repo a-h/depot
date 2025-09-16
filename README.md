@@ -1,38 +1,107 @@
 # github.com/a-h/depot
 
-A Nix binary cache, written in Go, with upload support.
+A Nix binary cache, written in Go, with upload support and SSH key authentication.
 
 ## Features
 
 - **Read access**: Serve NAR files and narinfo metadata from your local Nix store
 - **Upload support**: Accept uploads of compressed NAR files (.nar, .nar.xz, .nar.gz, .nar.bz2) and narinfo metadata via HTTP PUT
-- **Authentication**: Optional token-based authentication for uploads
+- **SSH Authentication**: JWT-based authentication using SSH public keys with read/write permissions
+- **Proxy & Push**: Built-in proxy and push commands for authenticated access to remote caches
 - **Compression support**: Automatic decompression of uploaded NAR files
 - **NAR processing**: Uses go-nix library for proper NAR file parsing and extraction
 - **Logging**: Structured JSON logging with configurable verbosity
 
-## Configuration
+## Quick Start
 
-### Upload Authentication
-
-To secure uploads, set the `DEPOT_UPLOAD_TOKEN` environment variable or use the `--upload-token` flag:
+### 1. Generate a signing key (for narinfo signatures)
 
 ```bash
-export DEPOT_UPLOAD_TOKEN="your-secret-token"
-go run ./cmd/depot serve --verbose
+nix key generate-secret --key-name mycache-1 > signing.key
 ```
 
-When a token is configured, all upload operations (PUT requests) require an `Authorization` header:
+### 2. Start the server (no authentication)
 
 ```bash
-# Using Bearer token format
-curl -H "Authorization: Bearer your-secret-token" -X PUT --data-binary @file.nar http://localhost:8080/abc123.nar
-
-# Or simple token format
-curl -H "Authorization: your-secret-token" -X PUT --data-binary @file.nar http://localhost:8080/abc123.nar
+depot serve --private-key signing.key --verbose
 ```
 
-If no token is configured, uploads are allowed without authentication (not recommended for production).
+### 3. Start the server with SSH authentication
+
+Create an auth file with SSH public keys:
+
+```bash
+# auth.keys - format: permission ssh-keytype base64key comment
+w ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABA... user@laptop
+r ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABA... user@desktop
+```
+
+Then start the server:
+
+```bash
+depot serve --auth-file auth.keys --private-key signing.key --verbose
+```
+
+### 4. Push to a remote cache
+
+```bash
+# Push a flake reference
+depot push https://my-cache.example.com github:NixOS/nixpkgs#sl
+
+# Push store paths
+depot push https://my-cache.example.com /nix/store/abc123...
+
+# Push from stdin
+echo "/nix/store/abc123..." | depot push https://my-cache.example.com --stdin
+```
+
+## Authentication
+
+The server supports SSH key-based authentication using JWT tokens. Authentication is configured via a text file containing SSH public keys with permission levels.
+
+### Auth File Format
+
+Each line in the auth file has the format:
+
+```text
+<permission> <ssh-keytype> <base64-key> <comment>
+```
+
+Where:
+
+- `permission`: `r` for read-only, `w` for read-write
+- `ssh-keytype`: SSH key type (e.g., `ssh-rsa`, `ssh-ed25519`)
+- `base64-key`: The base64-encoded public key
+- `comment`: Optional comment
+
+Example auth file:
+
+```text
+w ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... admin@laptop
+r ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... readonly@desktop
+w ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... deploy@ci
+```
+
+### Authentication Behavior
+
+- If **any** key has read-only (`r`) permission, **all** access requires authentication
+- If **only** write (`w`) keys are configured, only uploads require authentication
+- If **no** auth file is provided, no authentication is required
+
+### Using the Proxy
+
+The `depot proxy` command creates an authenticated proxy to a remote cache:
+
+```bash
+# Start proxy on default port (43407)
+depot proxy https://my-cache.example.com
+
+# Start proxy on random port
+depot proxy https://my-cache.example.com --port 0
+
+# Then use nix commands through the proxy
+nix copy --to http://localhost:43407 nixpkgs#sl
+```
 
 ### Supported Upload Formats
 

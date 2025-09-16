@@ -4,58 +4,90 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/a-h/depot/auth"
+	"golang.org/x/crypto/ssh"
 )
 
 type Middleware struct {
-	log   *slog.Logger
-	token string
-	next  http.Handler
+	log        *slog.Logger
+	authConfig *auth.AuthConfig
+	next       http.Handler
 }
 
-func NewMiddleware(log *slog.Logger, token string, next http.Handler) *Middleware {
-	if token == "" {
-		log.Warn("no upload token configured - uploads are not protected")
+func NewMiddleware(log *slog.Logger, authConfig *auth.AuthConfig, next http.Handler) *Middleware {
+	if authConfig == nil || len(authConfig.Keys) == 0 {
+		log.Warn("no authentication configured - all access is permitted")
 	}
 	return &Middleware{
-		log:   log,
-		token: token,
-		next:  next,
+		log:        log,
+		authConfig: authConfig,
+		next:       next,
 	}
 }
 
 func (m *Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Only require authentication for write operations
-	if r.Method != http.MethodPut && r.Method != http.MethodPost && r.Method != http.MethodDelete {
+	// If no auth config, allow all access.
+	if m.authConfig == nil || len(m.authConfig.Keys) == 0 {
 		m.next.ServeHTTP(w, r)
 		return
 	}
 
-	// If no token is configured, allow all writes (for backward compatibility).
-	if m.token == "" {
+	isWriteOperation := r.Method == http.MethodPut || r.Method == http.MethodPost || r.Method == http.MethodDelete
+
+	// Check if authentication is required for read operations.
+	if !isWriteOperation && !m.authConfig.RequireAuthForRead {
 		m.next.ServeHTTP(w, r)
 		return
 	}
 
-	// Check for Authorization header
+	// Check for Authorization header.
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		m.log.Warn("upload attempt without authorization header", slog.String("method", r.Method), slog.String("path", r.URL.Path))
-		http.Error(w, "Authorization required for uploads", http.StatusUnauthorized)
+		operation := "read"
+		if isWriteOperation {
+			operation = "write"
+		}
+		m.log.Warn("request without authorization header", slog.String("operation", operation), slog.String("method", r.Method), slog.String("path", r.URL.Path))
+		http.Error(w, "Authorization required", http.StatusUnauthorized)
 		return
 	}
 
-	// Support both "Bearer <token>" and just "<token>" formats
+	// Extract JWT token from Bearer header.
 	token := authHeader
-	if strings.HasPrefix(authHeader, "Bearer ") {
-		token = strings.TrimPrefix(authHeader, "Bearer ")
+	if strings.HasPrefix(token, "Bearer ") {
+		token = strings.TrimPrefix(token, "Bearer ")
 	}
 
-	if token != m.token {
-		m.log.Warn("upload attempt with invalid token", slog.String("method", r.Method), slog.String("path", r.URL.Path))
+	// Verify JWT token.
+	keyFingerprint, err := auth.VerifyJWT(token, m.authConfig)
+	if err != nil {
+		m.log.Warn("invalid JWT token", slog.String("error", err.Error()), slog.String("method", r.Method), slog.String("path", r.URL.Path))
 		http.Error(w, "Invalid authorization token", http.StatusUnauthorized)
 		return
 	}
 
-	m.log.Info("authorized upload", slog.String("method", r.Method), slog.String("path", r.URL.Path))
+	// Find the authorized key to check permissions.
+	var authorizedKey *auth.AuthorizedKey
+	for _, key := range m.authConfig.Keys {
+		if ssh.FingerprintSHA256(key.PublicKey) == keyFingerprint {
+			authorizedKey = &key
+			break
+		}
+	}
+	if authorizedKey == nil {
+		m.log.Warn("key not found in auth config", slog.String("fingerprint", keyFingerprint))
+		http.Error(w, "Invalid authorization token", http.StatusUnauthorized)
+		return
+	}
+
+	// Check permissions.
+	if isWriteOperation && authorizedKey.Permission != auth.PermissionReadWrite {
+		m.log.Warn("insufficient permissions for write operation", slog.String("fingerprint", keyFingerprint), slog.String("permission", string(authorizedKey.Permission)))
+		http.Error(w, "Insufficient permissions", http.StatusForbidden)
+		return
+	}
+
+	m.log.Debug("authorized request", slog.String("method", r.Method), slog.String("path", r.URL.Path), slog.String("fingerprint", keyFingerprint), slog.String("permission", string(authorizedKey.Permission)))
 	m.next.ServeHTTP(w, r)
 }

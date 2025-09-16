@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/a-h/depot/auth"
 	"github.com/a-h/depot/db"
 	"github.com/a-h/depot/handlers"
+	"github.com/a-h/depot/push"
 	"github.com/alecthomas/kong"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
@@ -18,24 +20,29 @@ type Globals struct {
 
 type CLI struct {
 	Globals
-	Serve   ServeCmd   `cmd:"" help:"Serve local Nix store as a publicly accessible"`
-	Keypair KeypairCmd `cmd:"" help:"Manage signing keypairs"`
+	Serve ServeCmd `cmd:"" help:"Serve local Nix store as a publicly accessible"`
+	Proxy ProxyCmd `cmd:"" help:"Proxy requests to a remote cache with authentication"`
+	Push  PushCmd  `cmd:"" help:"Push store paths and flake references to a cache"`
 }
 
 type ServeCmd struct {
-	ListenAddr  string `help:"Address to listen on" default:":8080"`
-	StorePath   string `help:"Path to Nix store" default:"./depot-nix-store"`
-	CacheURL    string `help:"URL of the binary cache" default:"http://localhost:8080"`
-	UploadToken string `help:"Token required for uploads (if empty, uploads are not protected)" env:"DEPOT_UPLOAD_TOKEN"`
-	PrivateKey  string `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
+	ListenAddr string `help:"Address to listen on" default:":8080"`
+	StorePath  string `help:"Path to Nix store" default:"./depot-nix-store"`
+	CacheURL   string `help:"URL of the binary cache" default:"http://localhost:8080"`
+	AuthFile   string `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
+	PrivateKey string `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
 }
 
-type KeypairCmd struct {
-	Generate KeypairGenerateCmd `cmd:"" help:"Generate a new signing keypair"`
+type ProxyCmd struct {
+	Target string `arg:"" help:"Target cache URL to proxy to"`
+	Port   int    `help:"Port to listen on (0 for random port)" default:"43407"`
 }
 
-type KeypairGenerateCmd struct {
-	Name string `arg:"" help:"Name of the keypair to generate"`
+type PushCmd struct {
+	Target     string   `arg:"" help:"Target cache URL to push to"`
+	Stdin      bool     `help:"Read store paths and flake references from stdin" default:"false"`
+	FlakeRefs  []string `help:"Flake references to push"`
+	StorePaths []string `help:"Store paths to push"`
 }
 
 func (cmd *ServeCmd) Run(globals *Globals) error {
@@ -50,6 +57,16 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 		return err
 	}
 	defer sqlDB.Close()
+
+	// Load authentication configuration if provided.
+	var authConfig *auth.AuthConfig
+	if cmd.AuthFile != "" {
+		authConfig, err = auth.LoadAuthConfig(cmd.AuthFile)
+		if err != nil {
+			return fmt.Errorf("failed to load auth config: %w", err)
+		}
+		log.Info("loaded authentication configuration", slog.String("authFile", cmd.AuthFile), slog.Int("keys", len(authConfig.Keys)), slog.Bool("requireAuthForRead", authConfig.RequireAuthForRead))
+	}
 
 	// Load private key for signing if provided.
 	var privateKey *signature.SecretKey
@@ -69,42 +86,50 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	// Create HTTP server.
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: handlers.New(log, cacheDB, cmd.StorePath, cmd.UploadToken, privateKey),
+		Handler: handlers.New(log, cacheDB, cmd.StorePath, authConfig, privateKey),
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("storePath", cmd.StorePath))
 	return s.ListenAndServe()
 }
 
-func (cmd *KeypairGenerateCmd) Run(globals *Globals) error {
-	secretKey, publicKey, err := signature.GenerateKeypair(cmd.Name, nil)
-	if err != nil {
-		return fmt.Errorf("failed to generate keypair: %w", err)
+func (cmd *ProxyCmd) Run(globals *Globals) error {
+	opts := &slog.HandlerOptions{}
+	if globals.Verbose {
+		opts.Level = slog.LevelDebug
+	}
+	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
+
+	return push.RunProxy(log, cmd.Target, cmd.Port)
+}
+
+func (cmd *PushCmd) Run(globals *Globals) error {
+	opts := &slog.HandlerOptions{}
+	if globals.Verbose {
+		opts.Level = slog.LevelDebug
+	}
+	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
+
+	pusher := push.New(log, cmd.Target)
+
+	if cmd.Stdin {
+		return pusher.PushFromStdin()
 	}
 
-	privateKeyFile := cmd.Name + ".private"
-	publicKeyFile := cmd.Name + ".public"
-
-	// Write private key.
-	if err := os.WriteFile(privateKeyFile, []byte(secretKey.String()), 0600); err != nil {
-		return fmt.Errorf("failed to write private key: %w", err)
+	// Push flake references.
+	for _, flakeRef := range cmd.FlakeRefs {
+		if err := pusher.PushFlakeReference(flakeRef); err != nil {
+			return fmt.Errorf("failed to push flake reference %s: %w", flakeRef, err)
+		}
 	}
 
-	// Write public key.
-	if err := os.WriteFile(publicKeyFile, []byte(publicKey.String()), 0644); err != nil {
-		return fmt.Errorf("failed to write public key: %w", err)
+	// Push store paths.
+	if len(cmd.StorePaths) > 0 {
+		return pusher.PushStorePaths(cmd.StorePaths)
 	}
 
-	fmt.Printf("Generated keypair '%s':\n", cmd.Name)
-	fmt.Printf("Private key: %s\n", privateKeyFile)
-	fmt.Printf("Public key:  %s\n", publicKeyFile)
-	fmt.Printf("\nPublic key value: %s\n", publicKey.String())
-	fmt.Printf("\nTo use with depot, add to your configuration:\n")
-	fmt.Printf("  depot serve --private-key %s\n", privateKeyFile)
-	fmt.Printf("\nTo trust this cache in Nix, add this line to your nix.conf:\n")
-	fmt.Printf("  trusted-public-keys = %s\n", publicKey.String())
-	fmt.Printf("\nNix configuration files are located at:\n")
-	fmt.Printf("  System-wide: /etc/nix/nix.conf\n")
-	fmt.Printf("  User-specific: ~/.config/nix/nix.conf\n")
+	if len(cmd.FlakeRefs) == 0 && len(cmd.StorePaths) == 0 && !cmd.Stdin {
+		return fmt.Errorf("no store paths or flake references specified")
+	}
 
 	return nil
 }

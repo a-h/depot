@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-h/depot/handlers/auth"
+	"github.com/a-h/depot/auth"
+	authhandler "github.com/a-h/depot/handlers/auth"
 	loghandler "github.com/a-h/depot/handlers/log"
 	narhandler "github.com/a-h/depot/handlers/nar"
 	narinfohandler "github.com/a-h/depot/handlers/narinfo"
@@ -16,7 +17,7 @@ import (
 	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
 )
 
-func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, storePath string, uploadToken string, privateKey *signature.SecretKey) http.Handler {
+func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, storePath string, authConfig *auth.AuthConfig, privateKey *signature.SecretKey) http.Handler {
 	nci := nixcacheinfo.New(log, storePath, privateKey)
 	nih := narinfohandler.New(log, cacheDB, 1, privateKey)
 	nh := narhandler.New(log, storePath)
@@ -47,7 +48,7 @@ func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, storePath string, u
 		http.Error(w, "not found", http.StatusNotFound)
 	})
 
-	authHandler := auth.NewMiddleware(log, uploadToken, h)
+	authHandler := authhandler.NewMiddleware(log, authConfig, h)
 	return NewLogger(log, authHandler)
 }
 

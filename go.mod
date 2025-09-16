@@ -9,4 +9,9 @@ require (
 	github.com/ulikunitz/xz v0.5.15
 )
 
-require github.com/pkg/errors v0.9.1 // indirect
+require (
+	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	golang.org/x/crypto v0.42.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
+)

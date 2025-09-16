@@ -78,7 +78,7 @@ func (ts *testServer) start(t *testing.T) {
 	// Create HTTP server.
 	ts.server = &http.Server{
 		Addr:    ":8080",
-		Handler: handlers.New(log, cacheDB, storePath, "", &privateKey),
+		Handler: handlers.New(log, cacheDB, storePath, nil, &privateKey),
 	}
 
 	// Start server in goroutine.
