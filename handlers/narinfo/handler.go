@@ -11,22 +11,25 @@ import (
 	"time"
 
 	"github.com/nix-community/go-nix/pkg/narinfo"
+	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 	"github.com/nix-community/go-nix/pkg/nixhash"
 	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
 )
 
-func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, cache int64) Handler {
+func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, cache int64, privateKey *signature.SecretKey) Handler {
 	return Handler{
-		log:     log,
-		cacheDB: cacheDB,
-		cache:   cache,
+		log:        log,
+		cacheDB:    cacheDB,
+		cache:      cache,
+		privateKey: privateKey,
 	}
 }
 
 type Handler struct {
-	log     *slog.Logger
-	cacheDB *binary_cache_v6.Queries
-	cache   int64
+	log        *slog.Logger
+	cacheDB    *binary_cache_v6.Queries
+	cache      int64
+	privateKey *signature.SecretKey
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +102,29 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 		info.Deriver = nar.Deriver.String
 	}
 
+	// Add signatures from database.
+	if nar.Sigs.Valid && nar.Sigs.String != "" {
+		sigStrs := strings.Fields(nar.Sigs.String)
+		info.Signatures = make([]signature.Signature, 0, len(sigStrs))
+		for _, sigStr := range sigStrs {
+			if sig, err := signature.ParseSignature(sigStr); err == nil {
+				info.Signatures = append(info.Signatures, sig)
+			} else {
+				h.log.Warn("failed to parse signature", slog.String("signature", sigStr), slog.Any("error", err))
+			}
+		}
+	}
+
+	// If we have a private key, generate a signature for this narinfo.
+	if h.privateKey != nil {
+		fingerprint := info.Fingerprint()
+		if sig, err := h.privateKey.Sign(nil, fingerprint); err == nil {
+			info.Signatures = append(info.Signatures, sig)
+		} else {
+			h.log.Warn("failed to sign narinfo", slog.String("hashPart", hashPart), slog.Any("error", err))
+		}
+	}
+
 	h.log.Debug(r.URL.String(), slog.String("storePath", storePath), slog.String("source", "cache"))
 
 	output := info.String()
@@ -155,6 +181,17 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 	signatures := make([]string, len(narinfoData.Signatures))
 	for i, sig := range narinfoData.Signatures {
 		signatures[i] = sig.String()
+	}
+
+	// If we have a private key, sign this narinfo.
+	if h.privateKey != nil {
+		sig, err := h.privateKey.Sign(nil, narinfoData.Fingerprint())
+		if err != nil {
+			h.log.Error("failed to sign narinfo during upload", slog.String("hashPart", hashPart), slog.Any("error", err))
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		signatures = append(signatures, sig.String())
 	}
 
 	// Store the NAR info.

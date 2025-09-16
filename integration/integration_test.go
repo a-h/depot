@@ -19,6 +19,7 @@ import (
 	"github.com/a-h/depot/handlers"
 	"github.com/nix-community/go-nix/pkg/nar"
 	"github.com/nix-community/go-nix/pkg/narinfo"
+	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
 	"github.com/ulikunitz/xz"
 )
@@ -26,6 +27,10 @@ import (
 const (
 	depotURL = "http://localhost:8080"
 	testPkg  = "github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl"
+
+	// Test signing keys - these are test keys only, safe to commit to repo.
+	testPrivateKey = "depot-test-1:I9FcLfz77TAEhqkIbQvPq3ecVn8A4Eml8SBek3Vk6TgBsla08REN3RYddk6pSEkfW1LBcgY7ln3aSbdupWF/+Q=="
+	testPublicKey  = "depot-test-1:AbJWtPERDd0WHXZOqUhJH1tSwXIGO5Z92km3bqVhf/k="
 )
 
 type testServer struct {
@@ -64,10 +69,16 @@ func (ts *testServer) start(t *testing.T) {
 		Level: slog.LevelWarn,
 	}))
 
+	// Load test private key for signing.
+	privateKey, err := signature.LoadSecretKey(testPrivateKey)
+	if err != nil {
+		t.Fatalf("failed to load test private key: %v", err)
+	}
+
 	// Create HTTP server.
 	ts.server = &http.Server{
 		Addr:    ":8080",
-		Handler: handlers.New(log, cacheDB, storePath, ""),
+		Handler: handlers.New(log, cacheDB, storePath, "", &privateKey),
 	}
 
 	// Start server in goroutine.
