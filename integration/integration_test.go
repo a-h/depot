@@ -258,6 +258,32 @@ Deriver: 5kl200crr6r3hxmpwhcxxh8ql3f30v29-sl-5.05.drv`))
 		t.Errorf("Deriver mismatch: expected %s, got %s", expectedNarInfo.Deriver, actualNarInfo.Deriver)
 	}
 
+	// Verify signature is present and valid.
+	if len(actualNarInfo.Signatures) == 0 {
+		t.Errorf("expected narinfo to contain signatures, but found none")
+	}
+	// Verify at least one signature is from our test key.
+	foundTestKeySignature := false
+	for _, sig := range actualNarInfo.Signatures {
+		if sig.Name == "depot-test-1" {
+			foundTestKeySignature = true
+
+			// Verify the signature is valid.
+			publicKey, err := signature.ParsePublicKey(testPublicKey)
+			if err != nil {
+				t.Fatalf("failed to parse test public key: %v", err)
+			}
+
+			if !publicKey.Verify(actualNarInfo.Fingerprint(), sig) {
+				t.Errorf("signature verification failed for depot-test-1 signature")
+			}
+			break
+		}
+	}
+	if !foundTestKeySignature {
+		t.Errorf("expected narinfo to contain signature from depot-test-1, but found signatures: %v", actualNarInfo.Signatures)
+	}
+
 	// Get the NAR file content.
 	// curl -o sl.nar.xz https://cache.nixos.org/nar/1cq669mqpzdm7c3r411mj5452v8fn26f4p2knnxfa7rqccjh5a5f.nar.xz
 	// sha256sum sl.nar.xz
@@ -265,6 +291,26 @@ Deriver: 5kl200crr6r3hxmpwhcxxh8ql3f30v29-sl-5.05.drv`))
 	err = server.getSHA256(actualNarInfo.URL, expectedNARHash)
 	if err != nil {
 		t.Fatalf("failed to verify NAR file hash: %v", err)
+	}
+
+	// Verify nix-cache-info includes the public key.
+	resp, err := server.get("nix-cache-info")
+	if err != nil {
+		t.Fatalf("failed to get nix-cache-info: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("nix-cache-info returned status %d, expected 200", resp.StatusCode)
+	}
+
+	cacheInfoBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("failed to read nix-cache-info response: %v", err)
+	}
+
+	if !strings.Contains(string(cacheInfoBody), "PublicKey: depot-test-1:AbJWtPERDd0WHXZOqUhJH1tSwXIGO5Z92km3bqVhf/k=") {
+		t.Errorf("nix-cache-info should contain our test public key, got: %s", string(cacheInfoBody))
 	}
 }
 
@@ -488,11 +534,11 @@ func TestRoundTripCopy(t *testing.T) {
 	t.Log("Verifying in depot")
 
 	// Create a temporary local store directory in CWD to test copying from depot to local store.
-	pwd, err := os.Getwd()
+	home, err := os.UserHomeDir()
 	if err != nil {
-		t.Fatalf("failed to get current working directory: %v", err)
+		t.Fatalf("failed to get user home directory: %v", err)
 	}
-	tempStore, err := os.MkdirTemp(pwd, "test-store-roundtrip-*")
+	tempStore, err := os.MkdirTemp(home, "depot-test-store-*")
 	if err != nil {
 		t.Fatalf("failed to create temp store: %v", err)
 	}

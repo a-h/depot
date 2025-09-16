@@ -118,11 +118,13 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 	// If we have a private key, generate a signature for this narinfo.
 	if h.privateKey != nil {
 		fingerprint := info.Fingerprint()
-		if sig, err := h.privateKey.Sign(nil, fingerprint); err == nil {
-			info.Signatures = append(info.Signatures, sig)
-		} else {
-			h.log.Warn("failed to sign narinfo", slog.String("hashPart", hashPart), slog.Any("error", err))
+		sig, err := h.privateKey.Sign(nil, fingerprint)
+		if err != nil {
+			h.log.Error("failed to sign narinfo", slog.String("hashPart", hashPart), slog.Any("error", err))
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
 		}
+		info.Signatures = append(info.Signatures, sig)
 	}
 
 	h.log.Debug(r.URL.String(), slog.String("storePath", storePath), slog.String("source", "cache"))
