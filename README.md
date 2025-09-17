@@ -184,14 +184,9 @@ docker run --rm -v ${HOME}/depot-nix-store:/depot-nix-store -p 8080:8080 ghcr.io
 
 ### push-store-path
 
-Push a store path to the binary cache. If authentication is enabled, you'll need to configure the token:
+Push a store path to the binary cache. If authentication is enabled, use the `proxy` command to proxy with authentication.
 
 ```bash
-# Without authentication
-nix copy --to http://localhost:8080 `nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl --raw` --refresh
-
-# With authentication (set token in environment)
-export DEPOT_UPLOAD_TOKEN="your-secret-token"
 nix copy --to http://localhost:8080 `nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl --raw` --refresh
 ```
 

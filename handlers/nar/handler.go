@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/nix-community/go-nix/pkg/nixbase32"
 )
 
 func New(log *slog.Logger, storePath string) Handler {
@@ -61,6 +63,13 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 		hashPart = split[0]
 	}
 
+	// Validate hash part to prevent directory traversal.
+	if !isValidHashPart(hashPart) {
+		h.log.Debug("invalid hash part", slog.String("hashPart", hashPart))
+		http.Error(w, "invalid hash part", http.StatusBadRequest)
+		return
+	}
+
 	fileExt, contentType := getFileExtensionAndContentType(r.URL.Path)
 
 	narPath := filepath.Join(h.storePath, "nar", hashPart+fileExt)
@@ -101,14 +110,48 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	hashPart := r.PathValue("hashpart")
 	if split := strings.SplitN(hashPart, "-", 2); len(split) == 2 {
 		hashPart = split[0]
 	}
 
+	// Validate hash part to prevent directory traversal.
+	if !isValidHashPart(hashPart) {
+		h.log.Debug("invalid hash part", slog.String("hashPart", hashPart))
+		http.Error(w, "invalid hash part", http.StatusBadRequest)
+		return
+	}
+
 	fileExt, _ := getFileExtensionAndContentType(r.URL.Path)
-	if err := h.addNarToStore(r.Body, hashPart, fileExt); err != nil {
-		h.log.Error("failed to add NAR to store", slog.String("hashPart", hashPart), slog.Any("error", err))
+
+	narDir := filepath.Join(h.storePath, "nar")
+	if err := os.MkdirAll(narDir, 0755); err != nil {
+		h.log.Error("failed to create NAR storage directory", slog.String("hashPart", hashPart), slog.Any("error", err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	narPath := filepath.Join(narDir, hashPart+fileExt)
+	file, err := os.Create(narPath)
+	if err != nil {
+		h.log.Error("failed to create NAR file", slog.String("hashPart", hashPart), slog.Any("error", err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, r.Body)
+	if err != nil {
+		h.log.Error("failed to write NAR file", slog.String("hashPart", hashPart), slog.Any("error", err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Ensure all data is written to disk before returning.
+	if err := file.Sync(); err != nil {
+		h.log.Error("failed to sync NAR file", slog.String("hashPart", hashPart), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -116,23 +159,11 @@ func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (h *Handler) addNarToStore(r io.Reader, hashPart string, fileExt string) error {
-	narDir := filepath.Join(h.storePath, "nar")
-	if err := os.MkdirAll(narDir, 0755); err != nil {
-		return fmt.Errorf("failed to create NAR storage directory: %w", err)
+// isValidHashPart validates that a hash part is a valid nixbase32 string.
+func isValidHashPart(hashPart string) bool {
+	if len(hashPart) == 0 {
+		return false
 	}
-
-	narPath := filepath.Join(narDir, hashPart+fileExt)
-	file, err := os.Create(narPath)
-	if err != nil {
-		return fmt.Errorf("failed to create NAR file: %w", err)
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, r)
-	if err != nil {
-		return fmt.Errorf("failed to write NAR file: %w", err)
-	}
-
-	return nil
+	// Use go-nix's nixbase32 validation to ensure proper format.
+	return nixbase32.ValidateString(hashPart) == nil
 }
