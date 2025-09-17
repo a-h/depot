@@ -133,7 +133,7 @@ go run ./cmd/depot
 Interactive: true
 
 ```bash
-go run ./cmd/depot serve --verbose
+go run ./cmd/depot serve --store-path=$HOME/depot-nix-store --verbose
 ```
 
 ### nix-build
