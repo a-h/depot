@@ -8,10 +8,9 @@ import (
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
 
-func New(log *slog.Logger, storePath string, privateKey *signature.SecretKey) Handler {
+func New(log *slog.Logger, privateKey *signature.SecretKey) Handler {
 	return Handler{
 		log:        log,
-		storePath:  storePath,
 		privateKey: privateKey,
 	}
 }
@@ -24,7 +23,7 @@ type Handler struct {
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprintf(w, "StoreDir: %s\nWantMassQuery: 1\nPriority: 30\n", h.storePath)
+	fmt.Fprint(w, "StoreDir: /nix/store\nWantMassQuery: 1\nPriority: 30\n")
 
 	// Add public key if we have a private key.
 	if h.privateKey != nil {

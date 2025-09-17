@@ -140,8 +140,6 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 	hashPart := r.PathValue("hashpart")
 
-	h.log.Info("uploading narinfo", slog.String("hashPart", hashPart))
-
 	defer r.Body.Close()
 	narinfoData, err := narinfo.Parse(r.Body)
 	if err != nil {
@@ -218,8 +216,6 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-
-	h.log.Info("successfully uploaded narinfo", slog.String("hashPart", hashPart), slog.String("storePath", narinfoData.StorePath))
 
 	w.WriteHeader(http.StatusCreated)
 }

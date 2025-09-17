@@ -5,13 +5,17 @@
       url = "github:hercules-ci/gitignore.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    version = {
+      url = "github:a-h/versioN";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     xc = {
       url = "github:joerdav/xc";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, gitignore, xc, }:
+  outputs = { self, nixpkgs, gitignore, version, xc, }:
     let
       allSystems = [
         "x86_64-linux" # 64-bit Intel/AMD Linux
@@ -27,25 +31,27 @@
           overlays = [
             (self: super: {
               xc = xc.outputs.packages.${system}.xc;
+              version = version.outputs.packages.${system}.default;
             })
           ];
         };
       });
 
+      v = builtins.readFile ./.version;
+
       # Build app.
       app = { name, pkgs, system, }: pkgs.buildGoModule {
         pname = name;
-        version = "1.0.0";
+        version = v;
         src = gitignore.lib.gitignoreSource ./.;
-        vendorHash = null;
+        vendorHash = "sha256-a4pKjTMq0D+t03cEqu39dekzVEFrXgA1l7ey/gMztE4=";
         subPackages = [ "cmd/${name}" ];
         ldflags = [
           "-s"
           "-w"
         ];
-        env = {
-          CGO_ENABLED = "0";
-        };
+        # Skip tests, we run those as part of CI.
+        doCheck = false;
       };
 
       # Build Docker containers.
@@ -58,7 +64,7 @@
         '';
       dockerImage = { name, pkgs, system, }:
         pkgs.dockerTools.buildLayeredImage {
-          name = name;
+          name = "ghcr.io/a-h/depot";
           tag = "latest";
           contents = [
             pkgs.coreutils
@@ -71,7 +77,8 @@
           # The config attribute maps to Docker's container config JSON:
           # https://docs.docker.com/engine/api/v1.41/#operation/ImageBuild
           config = {
-            Cmd = [ name ];
+            Cmd = [ "depot" "serve" ];
+            Env = [ "DEPOT_NIX_STORE=/depot-nix-store" ];
             User = "user:user";
             ExposedPorts = {
               "8080/tcp" = { };
@@ -85,6 +92,7 @@
         pkgs.gh
         pkgs.git
         pkgs.go
+        pkgs.version
         pkgs.xc
       ];
 
@@ -95,8 +103,9 @@
       # `nix build .#docker-image` builds the Docker container.
       # You will need a Linux system to build the Docker container.
       # e.g. nix build .#packages.x86_64-linux.docker-image
-      packages = forAllSystems ({ system, pkgs }: {
+      packages = forAllSystems ({ system, pkgs }: rec {
         default = app { name = name; pkgs = pkgs; system = system; };
+        depot = default;
       }
       // (if pkgs.stdenv.isLinux then {
         docker-image = dockerImage { name = name; pkgs = pkgs; system = system; };

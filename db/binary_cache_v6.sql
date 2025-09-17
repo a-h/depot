@@ -1,4 +1,4 @@
-CREATE TABLE BinaryCaches (
+CREATE TABLE IF NOT EXISTS BinaryCaches (
     id        integer primary key autoincrement not null,
     url       text unique not null,
     timestamp integer not null,
@@ -6,7 +6,7 @@ CREATE TABLE BinaryCaches (
     wantMassQuery integer not null,
     priority  integer not null
 );
-CREATE TABLE NARs (
+CREATE TABLE IF NOT EXISTS NARs (
     cache            integer not null,
     hashPart         text not null,
     namePart         text,
@@ -25,7 +25,7 @@ CREATE TABLE NARs (
     primary key (cache, hashPart),
     foreign key (cache) references BinaryCaches(id) on delete cascade
 );
-CREATE TABLE Realisations (
+CREATE TABLE IF NOT EXISTS Realisations (
     cache integer not null,
     outputId text not null,
     content blob, -- Json serialisation of the realisation, or null if the realisation is absent
@@ -33,7 +33,7 @@ CREATE TABLE Realisations (
     primary key (cache, outputId),
     foreign key (cache) references BinaryCaches(id) on delete cascade
 );
-CREATE TABLE LastPurge (
+CREATE TABLE IF NOT EXISTS LastPurge (
     dummy            text primary key,
     value            integer
 );

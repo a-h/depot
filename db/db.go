@@ -27,9 +27,13 @@ func Init(storeDir, cacheURL string) (*sql.DB, *binary_cache_v6.Queries, error) 
 	}
 
 	dbPath := filepath.Join(dbDir, "db.sqlite")
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite3", dbPath+"?_busy_timeout=5000")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database %s: %w", dbPath, err)
+	}
+
+	if _, err := db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
+		return nil, nil, fmt.Errorf("failed to enable WAL: %w", err)
 	}
 
 	if err := initBinaryCacheSchema(db, storeDir, cacheURL); err != nil {
@@ -37,10 +41,7 @@ func Init(storeDir, cacheURL string) (*sql.DB, *binary_cache_v6.Queries, error) 
 		return nil, nil, fmt.Errorf("failed to initialize binary cache schema: %w", err)
 	}
 
-	// Create query interfaces for both schemas
-	cacheQueries := binary_cache_v6.New(db)
-
-	return db, cacheQueries, nil
+	return db, binary_cache_v6.New(db), nil
 }
 
 func initBinaryCacheSchema(db *sql.DB, storeDir, cacheURL string) error {

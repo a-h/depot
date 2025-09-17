@@ -18,7 +18,7 @@ import (
 )
 
 func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, storePath string, authConfig *auth.AuthConfig, privateKey *signature.SecretKey) http.Handler {
-	nci := nixcacheinfo.New(log, storePath, privateKey)
+	nci := nixcacheinfo.New(log, privateKey)
 	nih := narinfohandler.New(log, cacheDB, 1, privateKey)
 	nh := narhandler.New(log, storePath)
 	lh := loghandler.New(log)

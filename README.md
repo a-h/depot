@@ -156,22 +156,30 @@ nix develop
 
 ### docker-build
 
+Interactive: true
+
 ```bash
 nix build .#docker-image
 ```
 
 ### docker-load
 
+Interactive: true
+
 Once you've built the image, you can load it into a local Docker daemon with `docker load`.
 
 ```bash
+docker rmi ghcr.io/a-h/depot:latest || true
 docker load < result
 ```
 
 ### docker-run
 
+Interactive: true
+
 ```bash
-docker run -p 8080:8080 app:latest
+mkdir -p ${HOME}/depot-nix-store
+docker run --rm -v ${HOME}/depot-nix-store:/depot-nix-store -p 8080:8080 ghcr.io/a-h/depot:latest
 ```
 
 ### push-store-path
@@ -211,4 +219,35 @@ Show coverage summary:
 
 ```bash
 go tool cover -func=coverage.out | grep total
+```
+
+### sqlite-find
+
+Warning: this may damage the running db.
+
+Interactive: true
+
+```bash
+sqlite3 -header -column "file:$HOME/depot-nix-store/var/nix/db/db.sqlite?ro=1" "SELECT hashPart, namePart FROM NARs WHERE namePart LIKE '%source%';"
+```
+
+### push-without-tools
+
+```bash
+export FLAKE=github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526
+export   PKG=github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl
+
+# Copy flake input and source to the store.
+nix flake archive --to http://localhost:8080 $FLAKE --refresh
+
+# Copy the sl package of the flake, and it derivation.
+nix copy --to 'http://localhost:8080' $PKG --refresh
+nix copy --derivation --to 'http://localhost:8080' $PKG --refresh
+
+# Copy realised paths of inputs to the derivation so that we can build it on the remote.
+nix copy --to http://localhost:8080 $(
+  nix-store --realise $(
+    nix derivation show "$PKG" | jq -r '.[].inputDrvs | keys[]'
+  )
+)
 ```

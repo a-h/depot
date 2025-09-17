@@ -102,13 +102,9 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
 	hashPart := r.PathValue("hashpart")
-	var expectedNarHash string
 	if split := strings.SplitN(hashPart, "-", 2); len(split) == 2 {
-		expectedNarHash = "sha256:" + split[1]
 		hashPart = split[0]
 	}
-
-	h.log.Info("uploading NAR", slog.String("hashPart", hashPart), slog.String("expectedNarHash", expectedNarHash))
 
 	fileExt, _ := getFileExtensionAndContentType(r.URL.Path)
 	if err := h.addNarToStore(r.Body, hashPart, fileExt); err != nil {
@@ -116,8 +112,6 @@ func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-
-	h.log.Info("NAR uploaded", slog.String("hashPart", hashPart))
 
 	w.WriteHeader(http.StatusCreated)
 }

@@ -20,29 +20,27 @@ type Globals struct {
 
 type CLI struct {
 	Globals
-	Serve ServeCmd `cmd:"" help:"Serve local Nix store as a publicly accessible"`
-	Proxy ProxyCmd `cmd:"" help:"Proxy requests to a remote cache with authentication"`
-	Push  PushCmd  `cmd:"" help:"Push store paths and flake references to a cache"`
+	Version VersionCmd `cmd:"" help:"Show version information"`
+	Serve   ServeCmd   `cmd:"" help:"Serve local Nix store as a publicly accessible"`
+	Proxy   ProxyCmd   `cmd:"" help:"Proxy requests to a remote cache with authentication"`
+	Push    PushCmd    `cmd:"" help:"Push store paths and flake references to a cache"`
+}
+
+var Version = "dev"
+
+type VersionCmd struct{}
+
+func (cmd *VersionCmd) Run(globals *Globals) error {
+	fmt.Printf("%s", Version)
+	return nil
 }
 
 type ServeCmd struct {
-	ListenAddr string `help:"Address to listen on" default:":8080"`
-	StorePath  string `help:"Path to Nix store" default:"./depot-nix-store"`
-	CacheURL   string `help:"URL of the binary cache" default:"http://localhost:8080"`
+	ListenAddr string `help:"Address to listen on" default:":8080" env:"DEPOT_LISTEN_ADDR"`
+	StorePath  string `help:"Path to Nix store" default:"./depot-nix-store" env:"DEPOT_STORE_PATH"`
+	CacheURL   string `help:"URL of the binary cache" default:"http://localhost:8080" env:"DEPOT_CACHE_URL"`
 	AuthFile   string `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
 	PrivateKey string `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
-}
-
-type ProxyCmd struct {
-	Target string `arg:"" help:"Target cache URL to proxy to"`
-	Port   int    `help:"Port to listen on (0 for random port)" default:"43407"`
-}
-
-type PushCmd struct {
-	Target     string   `arg:"" help:"Target cache URL to push to"`
-	Stdin      bool     `help:"Read store paths and flake references from stdin" default:"false"`
-	FlakeRefs  []string `help:"Flake references to push"`
-	StorePaths []string `help:"Store paths to push"`
 }
 
 func (cmd *ServeCmd) Run(globals *Globals) error {
@@ -92,6 +90,11 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	return s.ListenAndServe()
 }
 
+type ProxyCmd struct {
+	Target string `arg:"" help:"Target cache URL to proxy to"`
+	Port   int    `help:"Port to listen on (0 for random port)" default:"43407"`
+}
+
 func (cmd *ProxyCmd) Run(globals *Globals) error {
 	opts := &slog.HandlerOptions{}
 	if globals.Verbose {
@@ -100,6 +103,13 @@ func (cmd *ProxyCmd) Run(globals *Globals) error {
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
 	return push.RunProxy(log, cmd.Target, cmd.Port)
+}
+
+type PushCmd struct {
+	Target     string   `arg:"" help:"Target cache URL to push to"`
+	Stdin      bool     `help:"Read store paths and flake references from stdin" default:"false"`
+	FlakeRefs  []string `help:"Flake references to push"`
+	StorePaths []string `help:"Store paths to push"`
 }
 
 func (cmd *PushCmd) Run(globals *Globals) error {
