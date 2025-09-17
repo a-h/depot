@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set version
+        run: export VERSION=${{ github.ref_name }}
+
+      - name: Build depot binary
+        run: nix build .#depot
+
+      - name: Build docker image
+        run: nix build .#docker-image
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load and push docker image
+        run: |
+          # Load the docker image from the nix build result
+          docker load < result
+          
+          # Get the image name and tag it
+          IMAGE_NAME=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep -v REPOSITORY | head -n1)
+          
+          # Tag and push with the release tag
+          docker tag $IMAGE_NAME ghcr.io/a-h/depot:${{ github.ref_name }}
+          docker push ghcr.io/a-h/depot:${{ github.ref_name }}
+          
+          # Tag and push as latest
+          docker tag $IMAGE_NAME ghcr.io/a-h/depot:latest
+          docker push ghcr.io/a-h/depot:latest
