@@ -1,34 +1,28 @@
 package narinfo
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/a-h/depot/db"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
-	"github.com/nix-community/go-nix/pkg/nixhash"
-	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
 )
 
-func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, cache int64, privateKey *signature.SecretKey) Handler {
+func New(log *slog.Logger, db *db.DB, privateKey *signature.SecretKey) Handler {
 	return Handler{
 		log:        log,
-		cacheDB:    cacheDB,
-		cache:      cache,
+		db:         db,
 		privateKey: privateKey,
 	}
 }
 
 type Handler struct {
 	log        *slog.Logger
-	cacheDB    *binary_cache_v6.Queries
-	cache      int64
+	db         *db.DB
 	privateKey *signature.SecretKey
 }
 
@@ -45,91 +39,23 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
-	hashPart := r.PathValue("hashpart")
-
 	// First, try to find the narinfo in the binary cache database (for uploaded entries).
-	narRows, err := h.cacheDB.QueryNar(r.Context(), binary_cache_v6.QueryNarParams{
-		Cache:    h.cache,
-		Hashpart: hashPart,
-	})
+	ni, ok, err := h.db.GetNarInfo(r.Context(), r.URL.Path)
 	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			h.log.Error("failed to query cached narinfo", slog.String("hashPart", hashPart), slog.Any("error", err))
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
-		err = nil
+		h.log.Error("failed to query cached narinfo", slog.String("path", r.URL.Path), slog.Any("error", err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
-	if len(narRows) == 0 {
-		http.Error(w, fmt.Sprintf("path not found for: %s\n", hashPart), http.StatusNotFound)
+	if !ok {
+		http.Error(w, fmt.Sprintf("%s not found", r.URL.Path), http.StatusNotFound)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/x-nix-narinfo")
+	w.Header().Set("Content-Type", ni.ContentType())
 
-	// Reconstruct store path from hash part and name part.
-	nar := narRows[0]
-	storePath := fmt.Sprintf("/nix/store/%s", hashPart)
-	if nar.Namepart.Valid && nar.Namepart.String != "" {
-		storePath = fmt.Sprintf("/nix/store/%s-%s", hashPart, nar.Namepart.String)
-	}
+	h.log.Debug(r.URL.String(), slog.String("storePath", ni.StorePath), slog.String("source", "cache"))
 
-	info := &narinfo.NarInfo{
-		StorePath:   storePath,
-		URL:         nar.Url.String,
-		Compression: nar.Compression.String,
-		FileSize:    uint64(nar.Filesize.Int64),
-		NarSize:     uint64(nar.Narsize.Int64),
-	}
-	if nar.Filehash.Valid && nar.Filehash.String != "" {
-		if fileHash, err := nixhash.ParseAny(nar.Filehash.String, nil); err == nil {
-			info.FileHash = fileHash
-		} else {
-			h.log.Warn("failed to parse file hash", slog.String("fileHash", nar.Filehash.String), slog.Any("error", err))
-		}
-	}
-	if nar.Narhash.Valid && nar.Narhash.String != "" {
-		if narHash, err := nixhash.ParseAny(nar.Narhash.String, nil); err == nil {
-			info.NarHash = narHash
-		} else {
-			h.log.Warn("failed to parse nar hash", slog.String("narHash", nar.Narhash.String), slog.Any("error", err))
-		}
-	}
-	if nar.Refs.Valid && nar.Refs.String != "" {
-		info.References = strings.Fields(nar.Refs.String)
-	}
-	if nar.Deriver.Valid && nar.Deriver.String != "" {
-		info.Deriver = nar.Deriver.String
-	}
-
-	// Add signatures from database.
-	if nar.Sigs.Valid && nar.Sigs.String != "" {
-		sigStrs := strings.Fields(nar.Sigs.String)
-		info.Signatures = make([]signature.Signature, 0, len(sigStrs))
-		for _, sigStr := range sigStrs {
-			if sig, err := signature.ParseSignature(sigStr); err == nil {
-				info.Signatures = append(info.Signatures, sig)
-			} else {
-				h.log.Warn("failed to parse signature", slog.String("signature", sigStr), slog.Any("error", err))
-			}
-		}
-	}
-
-	// If we have a private key, generate a signature for this narinfo.
-	if h.privateKey != nil {
-		fingerprint := info.Fingerprint()
-		sig, err := h.privateKey.Sign(nil, fingerprint)
-		if err != nil {
-			h.log.Error("failed to sign narinfo", slog.String("hashPart", hashPart), slog.Any("error", err))
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
-		info.Signatures = append(info.Signatures, sig)
-	}
-
-	h.log.Debug(r.URL.String(), slog.String("storePath", storePath), slog.String("source", "cache"))
-
-	output := info.String()
+	output := ni.String()
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(output)))
 	if _, err = w.Write([]byte(output)); err != nil {
 		h.log.Error("failed to write response", slog.Any("error", err))
@@ -138,81 +64,41 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
-	hashPart := r.PathValue("hashpart")
-
 	defer r.Body.Close()
-	narinfoData, err := narinfo.Parse(r.Body)
+	ni, err := narinfo.Parse(r.Body)
 	if err != nil {
-		h.log.Error("failed to parse narinfo", slog.String("hashPart", hashPart), slog.Any("error", err))
+		h.log.Error("failed to parse narinfo", slog.String("path", r.URL.Path), slog.Any("error", err))
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
-	// Validate that the hash part matches.
-	expectedHashPart := getHashPartFromStorePath(narinfoData.StorePath)
-	if expectedHashPart != hashPart {
-		h.log.Error("hash part mismatch", slog.String("expected", expectedHashPart), slog.String("actual", hashPart))
-		http.Error(w, "hash part does not match store path", http.StatusBadRequest)
+	// We should have received a request like /optional-cache-name/16hvpw4b3r05girazh4rnwbw0jgjkb4l.narinfo
+	// We need to extract the hash part (16hvpw4b3r05girazh4rnwbw0jgjkb4l) and compare it to the hash in the StorePath to check that the uploaded narinfo matches the URL.
+	expectedHashPart := strings.TrimSuffix(filepath.Base(r.URL.Path), ".narinfo")
+
+	// Validate that the hash of the URL matches the value in the narinfo.
+	actualHashPart := getHashPartFromStorePath(ni.StorePath)
+	if actualHashPart != expectedHashPart {
+		h.log.Error("hash part mismatch", slog.String("expected", expectedHashPart), slog.String("actual", actualHashPart))
+		http.Error(w, fmt.Sprintf("URL hash part %q does not match store path %q", expectedHashPart, ni.StorePath), http.StatusBadRequest)
 		return
-	}
-
-	// Extract name part from store path.
-	namePart := ""
-	if base := filepath.Base(narinfoData.StorePath); base != "" {
-		parts := strings.SplitN(base, "-", 2)
-		if len(parts) > 1 {
-			namePart = parts[1]
-		}
-	}
-
-	// Prepare references string.
-	refsStr := strings.Join(narinfoData.References, " ")
-
-	// Prepare hash strings.
-	var fileHashStr, narHashStr string
-	if narinfoData.FileHash != nil {
-		fileHashStr = narinfoData.FileHash.String()
-	}
-	if narinfoData.NarHash != nil {
-		narHashStr = narinfoData.NarHash.String()
-	}
-
-	// Prepare signatures.
-	signatures := make([]string, len(narinfoData.Signatures))
-	for i, sig := range narinfoData.Signatures {
-		signatures[i] = sig.String()
 	}
 
 	// If we have a private key, sign this narinfo.
 	if h.privateKey != nil {
-		sig, err := h.privateKey.Sign(nil, narinfoData.Fingerprint())
+		sig, err := h.privateKey.Sign(nil, ni.Fingerprint())
 		if err != nil {
-			h.log.Error("failed to sign narinfo during upload", slog.String("hashPart", hashPart), slog.Any("error", err))
+			h.log.Error("failed to sign narinfo during upload", slog.String("path", r.URL.Path), slog.Any("error", err))
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-		signatures = append(signatures, sig.String())
+		ni.Signatures = append(ni.Signatures, sig)
 	}
 
 	// Store the NAR info.
-	err = h.cacheDB.InsertNar(r.Context(), binary_cache_v6.InsertNarParams{
-		Cache:       1,
-		Hashpart:    hashPart,
-		Namepart:    sql.NullString{String: namePart, Valid: namePart != ""},
-		Url:         sql.NullString{String: narinfoData.URL, Valid: narinfoData.URL != ""},
-		Compression: sql.NullString{String: narinfoData.Compression, Valid: narinfoData.Compression != ""},
-		Filehash:    sql.NullString{String: fileHashStr, Valid: fileHashStr != ""},
-		Filesize:    sql.NullInt64{Int64: int64(narinfoData.FileSize), Valid: narinfoData.FileSize > 0},
-		Narhash:     sql.NullString{String: narHashStr, Valid: narHashStr != ""},
-		Narsize:     sql.NullInt64{Int64: int64(narinfoData.NarSize), Valid: narinfoData.NarSize > 0},
-		Refs:        sql.NullString{String: refsStr, Valid: len(narinfoData.References) > 0},
-		Deriver:     sql.NullString{String: narinfoData.Deriver, Valid: narinfoData.Deriver != ""},
-		Sigs:        sql.NullString{String: strings.Join(signatures, " "), Valid: len(signatures) > 0},
-		Ca:          sql.NullString{String: narinfoData.CA, Valid: narinfoData.CA != ""},
-		Timestamp:   time.Now().Unix(),
-	})
+	err = h.db.PutNarInfo(r.Context(), r.URL.Path, ni)
 	if err != nil {
-		h.log.Error("failed to store narinfo in cache database", slog.String("hashPart", hashPart), slog.Any("error", err))
+		h.log.Error("failed to store narinfo in cache database", slog.String("path", r.URL.Path), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

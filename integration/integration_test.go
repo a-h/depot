@@ -1,17 +1,20 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
+	_ "embed"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,9 +23,14 @@ import (
 	"github.com/nix-community/go-nix/pkg/nar"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
-	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
 	"github.com/ulikunitz/xz"
 )
+
+//go:embed testdata/sl-aarch64-darwin.narinfo
+var slAarch64DarwinNarinfo string
+
+//go:embed testdata/sl-x86_64-linux.narinfo
+var slX8664LinuxNarinfo string
 
 const (
 	depotURL = "http://localhost:8080"
@@ -33,13 +41,65 @@ const (
 	testPublicKey  = "depot-test-1:AbJWtPERDd0WHXZOqUhJH1tSwXIGO5Z92km3bqVhf/k="
 )
 
+// threadSafeWriter provides a thread-safe writer with mutex protection.
+type threadSafeWriter struct {
+	buf *bytes.Buffer
+	mu  sync.Mutex
+}
+
+func newThreadSafeWriter() *threadSafeWriter {
+	return &threadSafeWriter{
+		buf: new(bytes.Buffer),
+	}
+}
+
+func (w *threadSafeWriter) Write(p []byte) (n int, err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buf.Write(p)
+}
+
+func (w *threadSafeWriter) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buf.String()
+}
+
+func (w *threadSafeWriter) Len() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buf.Len()
+}
+
+// getExpectedNarInfo returns the expected narinfo for the current architecture.
+func getExpectedNarInfo(t *testing.T) *narinfo.NarInfo {
+	var narinfoContent string
+	switch runtime.GOOS + "/" + runtime.GOARCH {
+	case "darwin/arm64":
+		narinfoContent = slAarch64DarwinNarinfo
+	case "linux/amd64":
+		narinfoContent = slX8664LinuxNarinfo
+	default:
+		t.Skipf("Test not supported on %s/%s architecture", runtime.GOOS, runtime.GOARCH)
+		return nil
+	}
+
+	// Parse the narinfo.
+	expectedNarInfo, err := narinfo.Parse(strings.NewReader(narinfoContent))
+	if err != nil {
+		t.Fatalf("failed to parse expected narinfo: %v", err)
+	}
+
+	return expectedNarInfo
+}
+
 type testServer struct {
-	server  *http.Server
-	tempDir string
-	done    chan struct{}
-	started chan struct{}
-	sqlDB   *sql.DB
-	cacheDB *binary_cache_v6.Queries
+	server     *http.Server
+	serverLogs *bytes.Buffer
+	nixLogs    *threadSafeWriter
+	tempDir    string
+	done       chan struct{}
+	started    chan struct{}
 }
 
 func (ts *testServer) start(t *testing.T) {
@@ -51,21 +111,19 @@ func (ts *testServer) start(t *testing.T) {
 
 	ts.done = make(chan struct{})
 	ts.started = make(chan struct{})
+	ts.nixLogs = newThreadSafeWriter()
 
 	storePath := filepath.Join(ts.tempDir, "store")
-	cacheURL := depotURL
 
 	// Initialize database and handlers.
-	sqlDB, cacheDB, err := db.Init(storePath, cacheURL)
+	sqliteDBPath := fmt.Sprintf("file:%s?mode=rwc", filepath.Join(ts.tempDir, "depot.db"))
+	db, closer, err := db.New(t.Context(), "sqlite", sqliteDBPath)
 	if err != nil {
 		t.Fatalf("failed to initialize database: %v", err)
 	}
 
-	// Store database references for verification.
-	ts.sqlDB = sqlDB
-	ts.cacheDB = cacheDB
-
-	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+	ts.serverLogs = new(bytes.Buffer)
+	log := slog.New(slog.NewJSONHandler(ts.serverLogs, &slog.HandlerOptions{
 		Level: slog.LevelWarn,
 	}))
 
@@ -78,12 +136,12 @@ func (ts *testServer) start(t *testing.T) {
 	// Create HTTP server.
 	ts.server = &http.Server{
 		Addr:    ":8080",
-		Handler: handlers.New(log, cacheDB, storePath, nil, &privateKey),
+		Handler: handlers.New(log, db, storePath, nil, &privateKey),
 	}
 
 	// Start server in goroutine.
 	go func() {
-		defer ts.sqlDB.Close()
+		defer closer()
 		close(ts.started)
 		if err := ts.server.ListenAndServe(); err != http.ErrServerClosed {
 			t.Errorf("server error: %v", err)
@@ -114,7 +172,7 @@ func (ts *testServer) start(t *testing.T) {
 	}
 }
 
-func (ts *testServer) stop() {
+func (ts *testServer) stop(t *testing.T) {
 	if ts.server != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -123,6 +181,16 @@ func (ts *testServer) stop() {
 	}
 	if ts.tempDir != "" {
 		os.RemoveAll(ts.tempDir)
+	}
+
+	// Print logs only if the test failed.
+	if t.Failed() {
+		if ts.serverLogs != nil && ts.serverLogs.Len() > 0 {
+			t.Logf("Server logs (test failed):\n%s", ts.serverLogs.String())
+		}
+		if ts.nixLogs != nil && ts.nixLogs.Len() > 0 {
+			t.Logf("Nix logs (test failed):\n%s", ts.nixLogs.String())
+		}
 	}
 }
 
@@ -176,22 +244,25 @@ func (ts *testServer) getSHA256(urlPath, expectedHash string) (err error) {
 func TestUploadPackageFromPublicCache(t *testing.T) {
 	server := &testServer{}
 	server.start(t)
-	defer server.stop()
+	t.Cleanup(func() { server.stop(t) })
 
 	// Get the store path for sl package.
 	// nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl --raw
-	slPath, err := Eval(os.Stdout, os.Stderr, testPkg)
+	slPath, err := Eval(server.nixLogs, server.nixLogs, testPkg)
 	if err != nil {
 		t.Fatalf("failed to evaluate sl package: %v", err)
 	}
 
+	// On an ARM64 Mac, the store location is:
 	// /nix/store/4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05
+	// On an x86_64 Linux machine, the store location is:
+	// /nix/store/yaywqsc9b0pl8yjwkgskjyf4m94ajzbm-sl-5.05
 	t.Logf("Store path for sl: %s", slPath)
 
 	// Copy the package to depot.
 	// nix copy --refresh --to http://localhost:8080 /nix/store/4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05
 	t.Logf("Copying package %s to depot %s", slPath, depotURL)
-	if err := CopyTo(os.Stdout, os.Stderr, ".", depotURL, false, slPath); err != nil {
+	if err := CopyTo(server.nixLogs, server.nixLogs, ".", depotURL, false, slPath); err != nil {
 		t.Fatalf("failed to copy sl package to depot: %v", err)
 	}
 
@@ -215,20 +286,7 @@ func TestUploadPackageFromPublicCache(t *testing.T) {
 	}
 
 	// Validate the parsed narinfo contains expected data.
-	// Retrieved by:
-	// curl https://cache.nixos.org/4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg.narinfo
-	expectedNarInfo, err := narinfo.Parse(strings.NewReader(`StorePath: /nix/store/4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05
-URL: nar/1cq669mqpzdm7c3r411mj5452v8fn26f4p2knnxfa7rqccjh5a5f.nar.xz
-Compression: xz
-FileHash: sha256:1cq669mqpzdm7c3r411mj5452v8fn26f4p2knnxfa7rqccjh5a5f
-FileSize: 7292
-NarHash: sha256:01k25dsan4vya77pzr1wc7qhml3fqsgiqll29mv42va6l3a59q4m
-NarSize: 54632
-References: m7ys2iqah82aa0409qmgsnas4y0p53ci-ncurses-6.5
-Deriver: 5kl200crr6r3hxmpwhcxxh8ql3f30v29-sl-5.05.drv`))
-	if err != nil {
-		t.Fatalf("failed to parse expected narinfo: %v", err)
-	}
+	expectedNarInfo := getExpectedNarInfo(t)
 
 	if actualNarInfo.StorePath != expectedNarInfo.StorePath {
 		t.Errorf("StorePath mismatch: expected %s, got %s", expectedNarInfo.StorePath, actualNarInfo.StorePath)
@@ -284,10 +342,8 @@ Deriver: 5kl200crr6r3hxmpwhcxxh8ql3f30v29-sl-5.05.drv`))
 		t.Errorf("expected narinfo to contain signature from depot-test-1, but found signatures: %v", actualNarInfo.Signatures)
 	}
 
-	// Get the NAR file content.
-	// curl -o sl.nar.xz https://cache.nixos.org/nar/1cq669mqpzdm7c3r411mj5452v8fn26f4p2knnxfa7rqccjh5a5f.nar.xz
-	// sha256sum sl.nar.xz
-	expectedNARHash := "aea8022563381fe5bab5535ce28cb00e6d514891350492073bb5fd8b6b3206b3"
+	// Get the NAR file content and verify its hash.
+	expectedNARHash := fmt.Sprintf("%x", expectedNarInfo.FileHash.Digest())
 	err = server.getSHA256(actualNarInfo.URL, expectedNARHash)
 	if err != nil {
 		t.Fatalf("failed to verify NAR file hash: %v", err)
@@ -317,14 +373,14 @@ Deriver: 5kl200crr6r3hxmpwhcxxh8ql3f30v29-sl-5.05.drv`))
 func TestCopyDerivation(t *testing.T) {
 	server := &testServer{}
 	server.start(t)
-	defer server.stop()
+	t.Cleanup(func() { server.stop(t) })
 
 	// It's not enough to simply copy the binary package - we need the derivation, or we can't
 	// run `nix run nixpkgs#sl` on the airgapped side.
 
 	// Get the derivation path for sl package.
 	// nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl.drvPath --raw
-	drvPath, err := Eval(os.Stdout, os.Stderr, testPkg+".drvPath")
+	drvPath, err := Eval(server.nixLogs, server.nixLogs, testPkg+".drvPath")
 	if err != nil {
 		t.Fatalf("failed to evaluate sl derivation: %v", err)
 	}
@@ -334,7 +390,7 @@ func TestCopyDerivation(t *testing.T) {
 
 	// Copy the derivation to our depot.
 	// nix copy --derivation --refresh --to http://localhost:8080 /nix/store/5kl200crr6r3hxmpwhcxxh8ql3f30v29-sl-5.05.drv
-	if err := CopyTo(os.Stdout, os.Stderr, ".", depotURL, true, drvPath); err != nil {
+	if err := CopyTo(server.nixLogs, server.nixLogs, ".", depotURL, true, drvPath); err != nil {
 		t.Fatalf("failed to copy derivation to depot: %v", err)
 	}
 
@@ -400,12 +456,13 @@ func TestCopyDerivation(t *testing.T) {
 	}
 	actualHash := fmt.Sprintf("%x", sha256.Sum256(remoteDrvData))
 
-	// Read the local derivation file.
-	// nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl.drvPath --raw
-	// /nix/store/5kl200crr6r3hxmpwhcxxh8ql3f30v29-sl-5.05.drv
-	// Hash it.
-	// sha256sum /nix/store/5kl200crr6r3hxmpwhcxxh8ql3f30v29-sl-5.05.drv
-	expectedHash := "ad0e8ebce4c8545b0b5643cadb790222f659d1607cea96ec24a7db5c5573e3db"
+	// Read the local derivation file and compare with the one from depot.
+	// The expected hash will vary by architecture since derivation content differs.
+	localDrvData, err := os.ReadFile(drvPath)
+	if err != nil {
+		t.Fatalf("failed to read local derivation file %s: %v", drvPath, err)
+	}
+	expectedHash := fmt.Sprintf("%x", sha256.Sum256(localDrvData))
 
 	// Compare the local derivation file with the one from the depot.
 	if expectedHash != actualHash {
@@ -416,14 +473,14 @@ func TestCopyDerivation(t *testing.T) {
 func TestFlakeArchive(t *testing.T) {
 	server := &testServer{}
 	server.start(t)
-	defer server.stop()
+	t.Cleanup(func() { server.stop(t) })
 
 	// For remote systems to be able to build from a flake, the flake source also needs to be
 	// available in the binary cache.
 
 	// Archive the flake to our depot.
 	flakeRef := "github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526"
-	if err := FlakeArchive(os.Stdout, os.Stderr, depotURL, flakeRef); err != nil {
+	if err := FlakeArchive(server.nixLogs, server.nixLogs, depotURL, flakeRef); err != nil {
 		t.Fatalf("failed to archive flake to depot: %v", err)
 	}
 
@@ -481,7 +538,7 @@ CA: fixed:r:sha256:0555pg9zcr3aazyxqb6g6q8vq3lc5zz3rnqx8ga1i3bs2q04yb4q`))
 
 	// curl -o source.nar.xz https://cache.nixos.org/nar/10mzlawkwj63dmnrsmxvj054icwqd23ma5si3rzgghw0dsdzq8sz.nar.xz
 	// sha256sum source.nar.xz
-	expectedNARHash := "5f23fc9b6e80c3f77e1e511755876898b3480a90bb579d6d6dc3483eb9a2bf82"
+	expectedNARHash := fmt.Sprintf("%x", expectedNarInfo.FileHash.Digest())
 	err = server.getSHA256(actualNarInfo.URL, expectedNARHash)
 	if err != nil {
 		t.Fatalf("failed to verify flake source NAR file hash: %v", err)
@@ -491,14 +548,14 @@ CA: fixed:r:sha256:0555pg9zcr3aazyxqb6g6q8vq3lc5zz3rnqx8ga1i3bs2q04yb4q`))
 func TestRoundTripCopy(t *testing.T) {
 	server := &testServer{}
 	server.start(t)
-	defer server.stop()
+	t.Cleanup(func() { server.stop(t) })
 
 	t.Log("Evaluating")
 
 	// Get the store path for sl package.
 	// nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl --raw
 	// /nix/store/4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05
-	slPath, err := Eval(os.Stdout, os.Stderr, testPkg)
+	slPath, err := Eval(server.nixLogs, server.nixLogs, testPkg)
 	if err != nil {
 		t.Fatalf("failed to evaluate sl package: %v", err)
 	}
@@ -507,7 +564,7 @@ func TestRoundTripCopy(t *testing.T) {
 
 	// Copy to depot.
 	// nix copy --to http://localhost:8080 /nix/store/4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05 --refresh
-	if err := CopyTo(os.Stdout, os.Stderr, ".", depotURL, false, slPath); err != nil {
+	if err := CopyTo(server.nixLogs, server.nixLogs, ".", depotURL, false, slPath); err != nil {
 		t.Fatalf("failed to copy to depot: %v", err)
 	}
 
@@ -524,7 +581,7 @@ func TestRoundTripCopy(t *testing.T) {
 
 	// Archive the flake to ensure source is available.
 	flakeRef := "github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526"
-	if err := FlakeArchive(os.Stdout, os.Stderr, depotURL, flakeRef); err != nil {
+	if err := FlakeArchive(server.nixLogs, server.nixLogs, depotURL, flakeRef); err != nil {
 		t.Fatalf("failed to archive flake to depot: %v", err)
 	}
 	// nix flake archive --json github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526 --json | jq -r .path
@@ -548,22 +605,28 @@ func TestRoundTripCopy(t *testing.T) {
 	// This tests that the Nix CLI can use depot as a source.
 	// For a complete round-trip, we need both runtime dependencies and source.
 	// nix copy --no-check-sigs --from http://localhost:8080 --to ~/temp-store /nix/store/4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05 /nix/store/mg5riyrz6hva7njw82gr5ghvajklkccq-source
-	if err := CopyFrom(os.Stdout, os.Stderr, tempStore, depotURL, slPath, flakeStorePath); err != nil {
+	if err := CopyFrom(server.nixLogs, server.nixLogs, tempStore, depotURL, slPath, flakeStorePath); err != nil {
 		t.Fatalf("failed to copy from depot to local store: %v", err)
 	}
 
 	// We should expect runtime dependencies and source:
-	// ls ~/temp-store/nix/store/
-	// 4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05
-	// m7ys2iqah82aa0409qmgsnas4y0p53ci-ncurses-6.5
-	// mg5riyrz6hva7njw82gr5ghvajklkccq-source
+	// The dependencies will vary by architecture, so get them from the narinfo.
+	slHashPart := filepath.Base(slPath)[:32]
+	slNarInfo, err := server.getNarInfo(slHashPart)
+	if err != nil {
+		t.Fatalf("failed to get narinfo for sl package: %v", err)
+	}
+
+	// Build expectations based on actual dependencies.
+	expectations := map[string]bool{
+		filepath.Base(slPath):         false,
+		filepath.Base(flakeStorePath): false,
+	}
+	for _, ref := range slNarInfo.References {
+		expectations[ref] = false
+	}
 
 	// Verify the package was copied to the local store.
-	expectations := map[string]bool{
-		"4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05":     false,
-		"m7ys2iqah82aa0409qmgsnas4y0p53ci-ncurses-6.5": false,
-		"mg5riyrz6hva7njw82gr5ghvajklkccq-source":      false,
-	}
 	err = filepath.Walk(tempStore, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			t.Fatalf("error accessing path %s: %v", p, err)
@@ -590,12 +653,12 @@ func TestRoundTripCopy(t *testing.T) {
 func TestInputDerivations(t *testing.T) {
 	server := &testServer{}
 	server.start(t)
-	defer server.stop()
+	t.Cleanup(func() { server.stop(t) })
 
 	// Get the store path for sl package.
 	// nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl --raw
 	// /nix/store/4h86fqf4nl9l4dqj8sjvqfw0f9x22wpg-sl-5.05
-	slPath, err := Eval(os.Stdout, os.Stderr, testPkg)
+	slPath, err := Eval(server.nixLogs, server.nixLogs, testPkg)
 	if err != nil {
 		t.Fatalf("failed to evaluate sl package: %v", err)
 	}
@@ -606,7 +669,7 @@ func TestInputDerivations(t *testing.T) {
 	// /nix/store/b1xjkaks3nl4xj3ik46gv2mjvhif94hg-bash-5.2p37.drv
 	// /nix/store/x0ynllywd6c6258h9pfca7cv1wiv6vh0-source.drv
 	// /nix/store/y1jcqq5s0yvd1mbpydy672aa9jky84xl-ncurses-6.5.drv
-	inputDerivations, inputSrcs, err := DerivationShow(os.Stdout, os.Stderr, ".", slPath)
+	inputDerivations, inputSrcs, err := DerivationShow(server.nixLogs, server.nixLogs, ".", slPath)
 	if err != nil {
 		t.Fatalf("failed to get derivation info: %v", err)
 	}
@@ -626,7 +689,7 @@ func TestInputDerivations(t *testing.T) {
 	// /nix/store/45gqd8zj3cwmcarz599m7rjs574mbv8z-ncurses-6.5-man
 	// /nix/store/m7ys2iqah82aa0409qmgsnas4y0p53ci-ncurses-6.5
 	// /nix/store/z42lhil8xivaavd2n5jp6b2y8zbikf7j-ncurses-6.5-dev
-	realisedPaths, err := RealiseStorePaths(os.Stdout, os.Stderr, allInputs...)
+	realisedPaths, err := RealiseStorePaths(server.nixLogs, server.nixLogs, allInputs...)
 	if err != nil {
 		t.Fatalf("failed to realise input derivations: %v", err)
 	}
@@ -638,7 +701,7 @@ func TestInputDerivations(t *testing.T) {
 	}
 
 	// Copy all the realised paths to depot.
-	if err := CopyTo(os.Stdout, os.Stderr, ".", depotURL, false, realisedPaths...); err != nil {
+	if err := CopyTo(server.nixLogs, server.nixLogs, ".", depotURL, false, realisedPaths...); err != nil {
 		t.Fatalf("failed to copy realised input derivations to depot: %v", err)
 	}
 
@@ -655,7 +718,7 @@ func TestInputDerivations(t *testing.T) {
 	}
 
 	// Copy the binary to depot as well.
-	if err := CopyTo(os.Stdout, os.Stderr, ".", depotURL, false, slPath); err != nil {
+	if err := CopyTo(server.nixLogs, server.nixLogs, ".", depotURL, false, slPath); err != nil {
 		t.Fatalf("failed to copy sl package to depot: %v", err)
 	}
 

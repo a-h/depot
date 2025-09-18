@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -36,11 +37,13 @@ func (cmd *VersionCmd) Run(globals *Globals) error {
 }
 
 type ServeCmd struct {
-	ListenAddr string `help:"Address to listen on" default:":8080" env:"DEPOT_LISTEN_ADDR"`
-	StorePath  string `help:"Path to Nix store" default:"./depot-nix-store" env:"DEPOT_STORE_PATH"`
-	CacheURL   string `help:"URL of the binary cache" default:"http://localhost:8080" env:"DEPOT_CACHE_URL"`
-	AuthFile   string `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
-	PrivateKey string `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
+	DatabaseType string `help:"Choice of database (sqlite, rqlite or postgres)" default:"sqlite" enum:"sqlite,rqlite,postgres" env:"DEPOT_DATABASE_TYPE"`
+	DatabaseURL  string `help:"Database connection URL" default:"file:depot-nix-store/depot.db?mode=rwc" env:"DEPOT_DATABASE_URL"`
+	ListenAddr   string `help:"Address to listen on" default:":8080" env:"DEPOT_LISTEN_ADDR"`
+	StorePath    string `help:"Path to Nix store" default:"./depot-nix-store" env:"DEPOT_STORE_PATH"`
+	CacheURL     string `help:"URL of the binary cache" default:"http://localhost:8080" env:"DEPOT_CACHE_URL"`
+	AuthFile     string `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
+	PrivateKey   string `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
 }
 
 func (cmd *ServeCmd) Run(globals *Globals) error {
@@ -50,11 +53,12 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	sqlDB, cacheDB, err := db.Init(cmd.StorePath, cmd.CacheURL)
+	// Create a new db.
+	db, closer, err := db.New(context.Background(), cmd.DatabaseType, cmd.DatabaseURL)
 	if err != nil {
-		return err
+		log.Error("failed to connect to database", slog.String("error", err.Error()))
 	}
-	defer sqlDB.Close()
+	defer closer()
 
 	// Load authentication configuration if provided.
 	var authConfig *auth.AuthConfig
@@ -84,7 +88,7 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	// Create HTTP server.
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: handlers.New(log, cacheDB, cmd.StorePath, authConfig, privateKey),
+		Handler: handlers.New(log, db, cmd.StorePath, authConfig, privateKey),
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("storePath", cmd.StorePath))
 	return s.ListenAndServe()

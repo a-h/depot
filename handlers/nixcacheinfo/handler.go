@@ -17,7 +17,6 @@ func New(log *slog.Logger, privateKey *signature.SecretKey) Handler {
 
 type Handler struct {
 	log        *slog.Logger
-	storePath  string
 	privateKey *signature.SecretKey
 }
 

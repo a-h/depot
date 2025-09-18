@@ -8,18 +8,18 @@ import (
 	"strings"
 
 	"github.com/a-h/depot/auth"
+	"github.com/a-h/depot/db"
 	authhandler "github.com/a-h/depot/handlers/auth"
 	loghandler "github.com/a-h/depot/handlers/log"
 	narhandler "github.com/a-h/depot/handlers/nar"
 	narinfohandler "github.com/a-h/depot/handlers/narinfo"
 	nixcacheinfo "github.com/a-h/depot/handlers/nixcacheinfo"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
-	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
 )
 
-func New(log *slog.Logger, cacheDB *binary_cache_v6.Queries, storePath string, authConfig *auth.AuthConfig, privateKey *signature.SecretKey) http.Handler {
+func New(log *slog.Logger, db *db.DB, storePath string, authConfig *auth.AuthConfig, privateKey *signature.SecretKey) http.Handler {
 	nci := nixcacheinfo.New(log, privateKey)
-	nih := narinfohandler.New(log, cacheDB, 1, privateKey)
+	nih := narinfohandler.New(log, db, privateKey)
 	nh := narhandler.New(log, storePath)
 	lh := loghandler.New(log)
 

@@ -1,62 +1,117 @@
 package db
 
 import (
-	"database/sql"
+	"context"
 	_ "embed"
 	"fmt"
-	"os"
-	"path/filepath"
+	"net/url"
+	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/nix-community/go-nix/pkg/sqlite/binary_cache_v6"
+	"github.com/a-h/kv"
+	"github.com/a-h/kv/postgreskv"
+	"github.com/a-h/kv/rqlitekv"
+	"github.com/a-h/kv/sqlitekv"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nix-community/go-nix/pkg/narinfo"
+	rqlitehttp "github.com/rqlite/rqlite-go-http"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-//go:embed binary_cache_v6.sql
-var binaryCacheSchema string
-
-// Init creates and initializes a unified database in the depot store directory
-// The database contains both Nix store and binary cache schemas.
-func Init(storeDir, cacheURL string) (*sql.DB, *binary_cache_v6.Queries, error) {
-	if err := os.MkdirAll(storeDir, 0755); err != nil {
-		return nil, nil, fmt.Errorf("failed to create store directory %s: %w", storeDir, err)
-	}
-
-	dbDir := filepath.Join(storeDir, "var", "nix", "db")
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
-		return nil, nil, fmt.Errorf("failed to create db directory %s: %w", dbDir, err)
-	}
-
-	dbPath := filepath.Join(dbDir, "db.sqlite")
-	db, err := sql.Open("sqlite3", dbPath+"?_busy_timeout=5000")
+func New(ctx context.Context, dbType, dsn string) (db *DB, closer func() error, err error) {
+	store, closer, err := createStore(dbType, dsn)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open database %s: %w", dbPath, err)
+		return nil, nil, err
 	}
-
-	if _, err := db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
-		return nil, nil, fmt.Errorf("failed to enable WAL: %w", err)
+	if err = store.Init(ctx); err != nil {
+		_ = closer()
+		return nil, nil, err
 	}
-
-	if err := initBinaryCacheSchema(db, storeDir, cacheURL); err != nil {
-		db.Close()
-		return nil, nil, fmt.Errorf("failed to initialize binary cache schema: %w", err)
-	}
-
-	return db, binary_cache_v6.New(db), nil
+	db = &DB{store: store}
+	return db, closer, nil
 }
 
-func initBinaryCacheSchema(db *sql.DB, storeDir, cacheURL string) error {
-	_, err := db.Exec(binaryCacheSchema)
-	if err != nil {
-		return fmt.Errorf("failed to create binary cache schema: %w", err)
+func createStore(dbType, url string) (store kv.Store, closer func() error, err error) {
+	switch dbType {
+	case "sqlite":
+		return newSqliteStore(url)
+	case "rqlite":
+		return newRqliteStore(url)
+	case "postgres":
+		return newPostgresStore(url)
+	default:
+		err = fmt.Errorf("unsupported database type: %s", dbType)
 	}
+	return
+}
 
-	_, err = db.Exec(`
-		INSERT OR IGNORE INTO BinaryCaches (id, url, timestamp, storeDir, wantMassQuery, priority)
-		VALUES (1, ?, ?, ?, 1, 30)
-	`, cacheURL, 0, filepath.Join(storeDir, "store"))
+func newSqliteStore(dsn string) (store kv.Store, closer func() error, err error) {
+	pool, err := sqlitex.NewPool(dsn, sqlitex.PoolOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to insert default cache: %w", err)
+		return nil, nil, err
 	}
+	store = sqlitekv.NewStore(pool)
+	return store, pool.Close, nil
+}
 
-	return nil
+func newRqliteStore(dsn string) (store kv.Store, closer func() error, err error) {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return nil, nil, err
+	}
+	client := rqlitehttp.NewClient(dsn, nil)
+	if u.User != nil {
+		pwd, _ := u.User.Password()
+		client.SetBasicAuth(u.User.Username(), pwd)
+	}
+	store = rqlitekv.NewStore(client)
+	return store, func() error { return nil }, nil
+}
+
+func newPostgresStore(dsn string) (store kv.Store, closer func() error, err error) {
+	pool, err := pgxpool.New(context.Background(), dsn)
+	if err != nil {
+		return nil, nil, err
+	}
+	store = postgreskv.NewStore(pool)
+	closer = func() error {
+		pool.Close()
+		return nil
+	}
+	return store, closer, nil
+}
+
+type DB struct {
+	store kv.Store
+}
+
+type narInfoRecord struct {
+	NarInfo string `kv:"ni"`
+}
+
+// GetNarInfo retrieves a narinfo from the database. The narinfoPath is the URL path, e.g. /cache-name/16hvpw4b3r05girazh4rnwbw0jgjkb4l.narinfo
+func (db *DB) GetNarInfo(ctx context.Context, narinfoPath string) (ni *narinfo.NarInfo, ok bool, err error) {
+	var nir narInfoRecord
+	_, ok, err = db.store.Get(ctx, narinfoPath, &nir)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+	ni, err = narinfo.Parse(strings.NewReader(nir.NarInfo))
+	if err != nil {
+		return nil, false, err
+	}
+	return ni, true, nil
+}
+
+// PutNarInfo stores a narinfo in the database. The narinfoPath is the URL path, e.g. /cache-name/16hvpw4b3r05girazh4rnwbw0jgjkb4l.narinfo
+func (db *DB) PutNarInfo(ctx context.Context, narinfoPath string, ni *narinfo.NarInfo) (err error) {
+	if ni == nil {
+		return fmt.Errorf("cannot store nil narinfo")
+	}
+	nir := narInfoRecord{
+		NarInfo: ni.String(),
+	}
+	return db.store.Put(ctx, narinfoPath, -1, nir)
 }
