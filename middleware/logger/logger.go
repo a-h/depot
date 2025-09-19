@@ -1,4 +1,4 @@
-package handlers
+package logger
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ type Logger struct {
 	next http.Handler
 }
 
-func NewLogger(log *slog.Logger, next http.Handler) *Logger {
+func New(log *slog.Logger, next http.Handler) *Logger {
 	return &Logger{
 		log:  log,
 		next: next,

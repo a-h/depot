@@ -15,7 +15,7 @@ type Middleware struct {
 	next       http.Handler
 }
 
-func NewMiddleware(log *slog.Logger, authConfig *auth.AuthConfig, next http.Handler) *Middleware {
+func New(log *slog.Logger, authConfig *auth.AuthConfig, next http.Handler) *Middleware {
 	if authConfig == nil || len(authConfig.Keys) == 0 {
 		log.Warn("no authentication configured - all access is permitted")
 	}

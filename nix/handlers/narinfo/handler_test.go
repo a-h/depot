@@ -11,7 +11,7 @@ import (
 
 	_ "embed"
 
-	"github.com/a-h/depot/db"
+	"github.com/a-h/depot/nix/db"
 )
 
 //go:embed testdata/16hvpw4b3r05girazh4rnwbw0jgjkb4l.narinfo

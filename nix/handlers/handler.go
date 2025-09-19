@@ -7,23 +7,21 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-h/depot/auth"
-	"github.com/a-h/depot/db"
-	authhandler "github.com/a-h/depot/handlers/auth"
-	loghandler "github.com/a-h/depot/handlers/log"
-	narhandler "github.com/a-h/depot/handlers/nar"
-	narinfohandler "github.com/a-h/depot/handlers/narinfo"
-	nixcacheinfo "github.com/a-h/depot/handlers/nixcacheinfo"
+	"github.com/a-h/depot/nix/db"
+	loghandler "github.com/a-h/depot/nix/handlers/log"
+	narhandler "github.com/a-h/depot/nix/handlers/nar"
+	narinfohandler "github.com/a-h/depot/nix/handlers/narinfo"
+	nixcacheinfo "github.com/a-h/depot/nix/handlers/nixcacheinfo"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
 
-func New(log *slog.Logger, db *db.DB, storePath string, authConfig *auth.AuthConfig, privateKey *signature.SecretKey) http.Handler {
+func New(log *slog.Logger, db *db.DB, storePath string, privateKey *signature.SecretKey) http.Handler {
 	nci := nixcacheinfo.New(log, privateKey)
 	nih := narinfohandler.New(log, db, privateKey)
 	nh := narhandler.New(log, storePath)
 	lh := loghandler.New(log)
 
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/nix-cache-info" {
 			nci.ServeHTTP(w, r)
 			return
@@ -47,9 +45,6 @@ func New(log *slog.Logger, db *db.DB, storePath string, authConfig *auth.AuthCon
 		}
 		http.Error(w, "not found", http.StatusNotFound)
 	})
-
-	authHandler := authhandler.NewMiddleware(log, authConfig, h)
-	return NewLogger(log, authHandler)
 }
 
 func getHashPart(urlPath string) string {

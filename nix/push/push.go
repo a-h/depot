@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/a-h/depot/nixcmd"
+	"github.com/a-h/depot/nix/nixcmd"
 	"github.com/a-h/depot/proxy"
 )
 
@@ -128,7 +128,7 @@ func (p *Push) PushFromStdin() error {
 // pushComprehensive does a comprehensive push of a store path including all dependencies.
 func (p *Push) pushComprehensive(proxyURL, storePath string) error {
 	p.log.Info("getting derivation info", slog.String("path", storePath))
-	
+
 	// Get input derivations and sources for the store path.
 	inputDerivations, inputSrcs, err := nixcmd.DerivationShow(os.Stdout, os.Stderr, ".", storePath)
 	if err != nil {
@@ -137,25 +137,25 @@ func (p *Push) pushComprehensive(proxyURL, storePath string) error {
 
 	// Combine all inputs.
 	allInputs := append(inputSrcs, inputDerivations...)
-	
+
 	// Start with the main store path.
 	allPaths := []string{storePath}
-	
+
 	if len(allInputs) > 0 {
 		p.log.Info("realising input dependencies", slog.Int("count", len(allInputs)))
-		
+
 		// Realise all input derivations.
 		realisedPaths, err := nixcmd.RealiseStorePaths(os.Stdout, os.Stderr, allInputs...)
 		if err != nil {
 			return fmt.Errorf("failed to realise input derivations: %w", err)
 		}
-		
+
 		// Add realised dependencies to the paths to copy.
 		allPaths = append(allPaths, realisedPaths...)
 	}
 
 	p.log.Info("copying all paths", slog.Int("count", len(allPaths)))
-	
+
 	// Copy all paths in one operation.
 	return nixcmd.CopyTo(os.Stdout, os.Stderr, ".", proxyURL, false, allPaths...)
 }
@@ -163,7 +163,7 @@ func (p *Push) pushComprehensive(proxyURL, storePath string) error {
 // pushFlakeComprehensive does a comprehensive push of a flake reference including the package and all dependencies.
 func (p *Push) pushFlakeComprehensive(proxyURL, flakeRef string) error {
 	p.log.Info("evaluating flake reference", slog.String("ref", flakeRef))
-	
+
 	// First, archive the flake source.
 	if err := nixcmd.FlakeArchive(os.Stdout, os.Stderr, proxyURL, flakeRef); err != nil {
 		return fmt.Errorf("failed to archive flake: %w", err)
