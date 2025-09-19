@@ -8,9 +8,11 @@ import (
 	"os"
 
 	"github.com/a-h/depot/auth"
-	"github.com/a-h/depot/nix/db"
-	"github.com/a-h/depot/nix/handlers"
+	nixdb "github.com/a-h/depot/nix/db"
 	"github.com/a-h/depot/nix/push"
+	npmdb "github.com/a-h/depot/npm/db"
+	"github.com/a-h/depot/routes"
+	"github.com/a-h/depot/store"
 	"github.com/alecthomas/kong"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
@@ -52,8 +54,8 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	// Create a new db.
-	db, closer, err := db.New(context.Background(), cmd.DatabaseType, cmd.DatabaseURL)
+	// Create a new store.
+	store, closer, err := store.New(context.Background(), cmd.DatabaseType, cmd.DatabaseURL)
 	if err != nil {
 		log.Error("failed to connect to database", slog.String("error", err.Error()))
 	}
@@ -87,7 +89,7 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	// Create HTTP server.
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: handlers.New(log, db, cmd.StorePath, authConfig, privateKey),
+		Handler: routes.New(log, nixdb.New(store), npmdb.New(store), cmd.StorePath, authConfig, privateKey),
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("storePath", cmd.StorePath))
 	return s.ListenAndServe()

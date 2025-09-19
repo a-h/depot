@@ -2,82 +2,15 @@ package db
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/a-h/kv"
-	"github.com/a-h/kv/postgreskv"
-	"github.com/a-h/kv/rqlitekv"
-	"github.com/a-h/kv/sqlitekv"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nix-community/go-nix/pkg/narinfo"
-	rqlitehttp "github.com/rqlite/rqlite-go-http"
-	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-func New(ctx context.Context, dbType, dsn string) (db *DB, closer func() error, err error) {
-	store, closer, err := createStore(dbType, dsn)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err = store.Init(ctx); err != nil {
-		_ = closer()
-		return nil, nil, err
-	}
-	db = &DB{store: store}
-	return db, closer, nil
-}
-
-func createStore(dbType, url string) (store kv.Store, closer func() error, err error) {
-	switch dbType {
-	case "sqlite":
-		return newSqliteStore(url)
-	case "rqlite":
-		return newRqliteStore(url)
-	case "postgres":
-		return newPostgresStore(url)
-	default:
-		err = fmt.Errorf("unsupported database type: %s", dbType)
-	}
-	return
-}
-
-func newSqliteStore(dsn string) (store kv.Store, closer func() error, err error) {
-	pool, err := sqlitex.NewPool(dsn, sqlitex.PoolOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-	store = sqlitekv.NewStore(pool)
-	return store, pool.Close, nil
-}
-
-func newRqliteStore(dsn string) (store kv.Store, closer func() error, err error) {
-	u, err := url.Parse(dsn)
-	if err != nil {
-		return nil, nil, err
-	}
-	client := rqlitehttp.NewClient(dsn, nil)
-	if u.User != nil {
-		pwd, _ := u.User.Password()
-		client.SetBasicAuth(u.User.Username(), pwd)
-	}
-	store = rqlitekv.NewStore(client)
-	return store, func() error { return nil }, nil
-}
-
-func newPostgresStore(dsn string) (store kv.Store, closer func() error, err error) {
-	pool, err := pgxpool.New(context.Background(), dsn)
-	if err != nil {
-		return nil, nil, err
-	}
-	store = postgreskv.NewStore(pool)
-	closer = func() error {
-		pool.Close()
-		return nil
-	}
-	return store, closer, nil
+func New(store kv.Store) (db *DB) {
+	return &DB{store: store}
 }
 
 type DB struct {
