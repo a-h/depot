@@ -7,3 +7,4 @@
 /depot-nix-store
 /integration/test-store-*
 /result
+/.depot-storage

@@ -8,55 +8,72 @@ import (
 	"os"
 
 	"github.com/a-h/depot/auth"
-	"github.com/a-h/depot/db"
-	"github.com/a-h/depot/handlers"
-	"github.com/a-h/depot/push"
+	"github.com/a-h/depot/cmd/globals"
+	nixcmd "github.com/a-h/depot/nix/cmd"
+	nixdb "github.com/a-h/depot/nix/db"
+	"github.com/a-h/depot/nix/push"
+	npmcmd "github.com/a-h/depot/npm/cmd"
+	npmdb "github.com/a-h/depot/npm/db"
+
+	"github.com/a-h/depot/routes"
+	"github.com/a-h/depot/store"
 	"github.com/alecthomas/kong"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
 
-type Globals struct {
-	Verbose bool `help:"Enable verbose logging" short:"v" default:"false"`
-}
-
 type CLI struct {
-	Globals
-	Version VersionCmd `cmd:"" help:"Show version information"`
-	Serve   ServeCmd   `cmd:"" help:"Serve local Nix store as a publicly accessible"`
-	Proxy   ProxyCmd   `cmd:"" help:"Proxy requests to a remote cache with authentication"`
-	Push    PushCmd    `cmd:"" help:"Push store paths and flake references to a cache"`
+	globals.Globals
+	Version VersionCmd    `cmd:"" help:"Show version information"`
+	Serve   ServeCmd      `cmd:"" help:"Start the depot server"`
+	Proxy   ProxyCmd      `cmd:"" help:"Proxy requests to a remote depot with authentication"`
+	Nix     nixcmd.NixCmd `cmd:"" help:"Nix package management commands"`
+	NPM     npmcmd.NPMCmd `cmd:"" help:"NPM package management commands"`
 }
 
 var Version = "dev"
 
 type VersionCmd struct{}
 
-func (cmd *VersionCmd) Run(globals *Globals) error {
+func (cmd *VersionCmd) Run(globals *globals.Globals) error {
 	fmt.Printf("%s", Version)
 	return nil
 }
 
 type ServeCmd struct {
 	DatabaseType string `help:"Choice of database (sqlite, rqlite or postgres)" default:"sqlite" enum:"sqlite,rqlite,postgres" env:"DEPOT_DATABASE_TYPE"`
-	DatabaseURL  string `help:"Database connection URL" default:"file:depot-nix-store/depot.db?mode=rwc" env:"DEPOT_DATABASE_URL"`
+	DatabaseURL  string `help:"Database connection URL" default:"" env:"DEPOT_DATABASE_URL"`
 	ListenAddr   string `help:"Address to listen on" default:":8080" env:"DEPOT_LISTEN_ADDR"`
-	StorePath    string `help:"Path to Nix store" default:"./depot-nix-store" env:"DEPOT_STORE_PATH"`
-	CacheURL     string `help:"URL of the binary cache" default:"http://localhost:8080" env:"DEPOT_CACHE_URL"`
+	StorePath    string `help:"Path to file store" default:"" env:"DEPOT_STORE_PATH"`
 	AuthFile     string `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
 	PrivateKey   string `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
 }
 
-func (cmd *ServeCmd) Run(globals *Globals) error {
+func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 	opts := &slog.HandlerOptions{}
 	if globals.Verbose {
 		opts.Level = slog.LevelDebug
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
+	if cmd.DatabaseURL == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		cmd.DatabaseURL = fmt.Sprintf("file:%s/depot-nix-store/depot.db?mode=rwc", home)
+	}
+	if cmd.StorePath == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		cmd.StorePath = fmt.Sprintf("%s/depot-nix-store/store", home)
+	}
 
-	// Create a new db.
-	db, closer, err := db.New(context.Background(), cmd.DatabaseType, cmd.DatabaseURL)
+	// Create a new store.
+	store, closer, err := store.New(context.Background(), cmd.DatabaseType, cmd.DatabaseURL)
 	if err != nil {
 		log.Error("failed to connect to database", slog.String("error", err.Error()))
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer closer()
 
@@ -88,7 +105,7 @@ func (cmd *ServeCmd) Run(globals *Globals) error {
 	// Create HTTP server.
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: handlers.New(log, db, cmd.StorePath, authConfig, privateKey),
+		Handler: routes.New(log, nixdb.New(store), npmdb.New(store), cmd.StorePath, authConfig, privateKey),
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("storePath", cmd.StorePath))
 	return s.ListenAndServe()
@@ -99,7 +116,7 @@ type ProxyCmd struct {
 	Port   int    `help:"Port to listen on (0 for random port)" default:"43407"`
 }
 
-func (cmd *ProxyCmd) Run(globals *Globals) error {
+func (cmd *ProxyCmd) Run(globals *globals.Globals) error {
 	opts := &slog.HandlerOptions{}
 	if globals.Verbose {
 		opts.Level = slog.LevelDebug
@@ -109,48 +126,9 @@ func (cmd *ProxyCmd) Run(globals *Globals) error {
 	return push.RunProxy(log, cmd.Target, cmd.Port)
 }
 
-type PushCmd struct {
-	Target     string   `arg:"" help:"Target cache URL to push to"`
-	Stdin      bool     `help:"Read store paths and flake references from stdin" default:"false"`
-	FlakeRefs  []string `help:"Flake references to push"`
-	StorePaths []string `help:"Store paths to push"`
-}
-
-func (cmd *PushCmd) Run(globals *Globals) error {
-	opts := &slog.HandlerOptions{}
-	if globals.Verbose {
-		opts.Level = slog.LevelDebug
-	}
-	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
-
-	pusher := push.New(log, cmd.Target)
-
-	if cmd.Stdin {
-		return pusher.PushFromStdin()
-	}
-
-	// Push flake references.
-	for _, flakeRef := range cmd.FlakeRefs {
-		if err := pusher.PushFlakeReference(flakeRef); err != nil {
-			return fmt.Errorf("failed to push flake reference %s: %w", flakeRef, err)
-		}
-	}
-
-	// Push store paths.
-	if len(cmd.StorePaths) > 0 {
-		return pusher.PushStorePaths(cmd.StorePaths)
-	}
-
-	if len(cmd.FlakeRefs) == 0 && len(cmd.StorePaths) == 0 && !cmd.Stdin {
-		return fmt.Errorf("no store paths or flake references specified")
-	}
-
-	return nil
-}
-
 func main() {
 	cli := CLI{
-		Globals: Globals{},
+		Globals: globals.Globals{},
 	}
 
 	ctx := kong.Parse(&cli,

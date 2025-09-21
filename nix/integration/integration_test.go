@@ -17,8 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/a-h/depot/db"
-	"github.com/a-h/depot/handlers"
+	"github.com/a-h/depot/nix/db"
+	"github.com/a-h/depot/nix/handlers"
+	"github.com/a-h/depot/store"
 	"github.com/nix-community/go-nix/pkg/nar"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
@@ -116,7 +117,7 @@ func (ts *testServer) start(t *testing.T) {
 
 	// Initialize database and handlers.
 	sqliteDBPath := fmt.Sprintf("file:%s?mode=rwc", filepath.Join(ts.tempDir, "depot.db"))
-	db, closer, err := db.New(t.Context(), "sqlite", sqliteDBPath)
+	store, closer, err := store.New(t.Context(), "sqlite", sqliteDBPath)
 	if err != nil {
 		t.Fatalf("failed to initialize database: %v", err)
 	}
@@ -135,7 +136,7 @@ func (ts *testServer) start(t *testing.T) {
 	// Create HTTP server.
 	ts.server = &http.Server{
 		Addr:    ":8080",
-		Handler: handlers.New(log, db, storePath, nil, &privateKey),
+		Handler: handlers.New(log, db.New(store), storePath, &privateKey),
 	}
 
 	// Start server in goroutine.
