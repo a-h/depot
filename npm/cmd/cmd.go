@@ -60,5 +60,5 @@ func (cmd *Push) Run(globals *globals.Globals) error {
 		pusher.SetAuthToken(cmd.Token)
 	}
 
-	return pusher.PushPackages(context.Background(), cmd.Dir)
+	return pusher.Push(context.Background(), cmd.Dir)
 }

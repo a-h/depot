@@ -16,8 +16,8 @@ import (
 	"github.com/a-h/depot/npm/models"
 )
 
-// Push handles uploading NPM packages to a remote depot.
-type Push struct {
+// Pusher handles uploading NPM packages to a remote depot.
+type Pusher struct {
 	log    *slog.Logger
 	client *http.Client
 	target string
@@ -25,8 +25,8 @@ type Push struct {
 }
 
 // New creates a new Push instance.
-func New(log *slog.Logger, target string) *Push {
-	return &Push{
+func New(log *slog.Logger, target string) *Pusher {
+	return &Pusher{
 		log:    log,
 		client: &http.Client{Timeout: 60 * time.Second},
 		target: strings.TrimSuffix(target, "/"),
@@ -34,12 +34,12 @@ func New(log *slog.Logger, target string) *Push {
 }
 
 // SetAuthToken sets the JWT authentication token.
-func (p *Push) SetAuthToken(token string) {
+func (p *Pusher) SetAuthToken(token string) {
 	p.token = token
 }
 
-// PushPackages pushes all packages from a directory to the remote depot.
-func (p *Push) PushPackages(ctx context.Context, baseDir string) error {
+// Push pushes all packages from a directory to the remote depot.
+func (p *Pusher) Push(ctx context.Context, baseDir string) error {
 	var packageCount int
 
 	err := filepath.Walk(baseDir, func(path string, info os.FileInfo, err error) error {
@@ -83,7 +83,7 @@ func (p *Push) PushPackages(ctx context.Context, baseDir string) error {
 }
 
 // pushPackage pushes a single package to the remote depot.
-func (p *Push) pushPackage(ctx context.Context, metadata models.AbbreviatedPackage, packageDir string) error {
+func (p *Pusher) pushPackage(ctx context.Context, metadata models.AbbreviatedPackage, packageDir string) error {
 	p.log.Info("pushing package", slog.String("name", metadata.Name))
 
 	// Push each version.
@@ -92,7 +92,15 @@ func (p *Push) pushPackage(ctx context.Context, metadata models.AbbreviatedPacka
 			p.log.Warn("skipping version, tarball not found", slog.String("package", versionInfo.Name), slog.String("version", versionInfo.Version))
 			continue
 		}
-		if err := p.pushVersion(ctx, versionInfo, packageDir); err != nil {
+		// DistTags are a map of tag name to version.
+		var tagsForVersion []string
+		for tag, taggedVersion := range metadata.DistTags {
+			if taggedVersion == version {
+				tagsForVersion = append(tagsForVersion, tag)
+			}
+		}
+
+		if err := p.pushVersion(ctx, versionInfo, tagsForVersion, packageDir); err != nil {
 			return fmt.Errorf("failed to push version %s: %w", version, err)
 		}
 	}
@@ -102,7 +110,7 @@ func (p *Push) pushPackage(ctx context.Context, metadata models.AbbreviatedPacka
 }
 
 // pushVersion pushes a single version of a package.
-func (p *Push) pushVersion(ctx context.Context, versionInfo models.AbbreviatedVersion, packageDir string) error {
+func (p *Pusher) pushVersion(ctx context.Context, versionInfo models.AbbreviatedVersion, tagsForVersion []string, packageDir string) error {
 	p.log.Info("pushing version", slog.String("package", versionInfo.Name), slog.String("version", versionInfo.Version))
 
 	// Find the tarball file.
@@ -131,9 +139,12 @@ func (p *Push) pushVersion(ctx context.Context, versionInfo models.AbbreviatedVe
 		return fmt.Errorf("failed to marshal version metadata: %w", err)
 	}
 
-	versionURL := fmt.Sprintf("%s/npm/%s/%s", p.target, versionInfo.Name, versionInfo.Version)
-	if err := p.putData(ctx, versionURL, bytes.NewReader(versionData), "application/json"); err != nil {
-		return fmt.Errorf("failed to push version metadata: %w", err)
+	tagsForVersion = append(tagsForVersion, versionInfo.Version)
+	for _, tag := range tagsForVersion {
+		versionURL := fmt.Sprintf("%s/npm/%s/%s", p.target, versionInfo.Name, tag)
+		if err := p.putData(ctx, versionURL, bytes.NewReader(versionData), "application/json"); err != nil {
+			return fmt.Errorf("failed to push version metadata: %w", err)
+		}
 	}
 
 	p.log.Info("version pushed successfully", slog.String("package", versionInfo.Name), slog.String("version", versionInfo.Version))
@@ -141,7 +152,7 @@ func (p *Push) pushVersion(ctx context.Context, versionInfo models.AbbreviatedVe
 }
 
 // putData performs a PUT request with the given data.
-func (p *Push) putData(ctx context.Context, url string, data io.Reader, contentType string) error {
+func (p *Pusher) putData(ctx context.Context, url string, data io.Reader, contentType string) error {
 	req, err := http.NewRequestWithContext(ctx, "PUT", url, data)
 	if err != nil {
 		return err

@@ -52,26 +52,24 @@ func (d *DB) GetPackage(ctx context.Context, packageName string) (metadata model
 		return models.AbbreviatedPackage{}, false, nil
 	}
 
-	versions := make(map[string]models.AbbreviatedVersion)
-	var latestVersion string
-
-	for _, record := range records {
-		// Extract version from key safely using path.Base.
-		versionPart := path.Base(record.Key)
-
-		// Decode the version.
-		if decodedVersion, err := url.PathUnescape(versionPart); err == nil {
-			// Get the version metadata.
-			var versionMetadata models.AbbreviatedVersion
-			if _, ok, err := d.store.Get(ctx, record.Key, &versionMetadata); err == nil && ok {
-				versions[decodedVersion] = versionMetadata
-				latestVersion = decodedVersion // Simple latest selection - should use semver in production.
-			}
-		}
+	allVersions, err := kv.ValuesOf[models.AbbreviatedVersion](records)
+	if err != nil {
+		return models.AbbreviatedPackage{}, false, err
 	}
 
-	if len(versions) == 0 {
+	if len(allVersions) == 0 {
 		return models.AbbreviatedPackage{}, false, nil
+	}
+
+	var latestVersion string
+	for i, r := range records {
+		if path.Base(r.Key) == "latest" {
+			latestVersion = allVersions[i].Version
+		}
+	}
+	versions := make(map[string]models.AbbreviatedVersion, len(allVersions))
+	for _, v := range allVersions {
+		versions[v.Version] = v
 	}
 
 	// Build complete package metadata.
@@ -94,21 +92,11 @@ func (d *DB) PutPackageVersion(ctx context.Context, packageName, version string,
 
 // DeletePackage deletes all versions of a package.
 func (d *DB) DeletePackage(ctx context.Context, packageName string) error {
-	// Delete all versions.
 	encodedName := url.PathEscape(packageName)
 	prefix := path.Join("/npm", encodedName) + "/"
-
-	records, err := d.store.GetPrefix(ctx, prefix, 0, 1000)
-	if err != nil {
+	if _, err := d.store.DeletePrefix(ctx, prefix, 0, -1); err != nil {
 		return err
 	}
-
-	for _, record := range records {
-		if _, err := d.store.Delete(ctx, record.Key); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

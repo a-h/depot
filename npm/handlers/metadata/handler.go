@@ -154,10 +154,6 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "package name mismatch", http.StatusBadRequest)
 		return
 	}
-	if versionMetadata.Version != version {
-		http.Error(w, "version mismatch", http.StatusBadRequest)
-		return
-	}
 
 	// Save the version to the database.
 	if err := h.db.PutPackageVersion(r.Context(), fullPkgName, version, versionMetadata); err != nil {
