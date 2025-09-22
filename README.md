@@ -1,6 +1,6 @@
 # github.com/a-h/depot
 
-A Nix binary cache, written in Go, with upload support and SSH key authentication.
+Storage for Nix and NPM packages.
 
 ## Features
 
@@ -12,7 +12,7 @@ A Nix binary cache, written in Go, with upload support and SSH key authenticatio
 - **NAR processing**: Uses go-nix library for proper NAR file parsing and extraction
 - **Logging**: Structured JSON logging with configurable verbosity
 
-## Quick Start
+## Nix usage
 
 ### 1. Generate a signing key (for narinfo signatures)
 
@@ -46,13 +46,41 @@ depot serve --auth-file auth.keys --private-key signing.key --verbose
 
 ```bash
 # Push a flake reference
-depot push https://my-cache.example.com github:NixOS/nixpkgs#sl
+depot push https://my-cache.example.com --flake-refs github:NixOS/nixpkgs#sl
 
 # Push store paths
-depot push https://my-cache.example.com /nix/store/abc123...
+depot push https://my-cache.example.com --store-paths /nix/store/abc123...
 
 # Push from stdin
 echo "/nix/store/abc123..." | depot push https://my-cache.example.com --stdin
+```
+
+Or push using `nix copy` - see `push-without-tools` for complete push examples.
+
+```bash
+nix copy --to https://my-cache.example.com nixpkgs#sl
+```
+
+## NPM usage
+
+### 1. Download packages from NPM
+
+```bash
+depot npm save express
+```
+
+This will create a `.depot-storage` in the current directory containing the NPM package tarballs and metadata.
+
+### 2. Push the NPM packages to depot
+
+```bash
+depot npm push http://localhost:8080
+```
+
+### 3. Use the packages
+
+```bash
+npm install --registry http://localhost:8080 express
 ```
 
 ## Authentication
