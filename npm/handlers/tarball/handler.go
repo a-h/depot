@@ -58,7 +58,7 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	h.log.Info("serving tarball", slog.String("path", requestPath))
+	h.log.Debug("serving tarball", slog.String("path", requestPath))
 	w.Header().Set("Content-Type", "application/octet-stream")
 
 	// Copy file content to response.
