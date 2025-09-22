@@ -96,6 +96,6 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Info("tarball uploaded successfully", slog.String("path", path))
+	h.log.Debug("tarball uploaded successfully", slog.String("path", path))
 	w.WriteHeader(http.StatusOK)
 }

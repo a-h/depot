@@ -162,7 +162,7 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Info("saved package version", slog.String("package", fullPkgName), slog.String("version", version))
+	h.log.Debug("saved package version", slog.String("package", fullPkgName), slog.String("version", version))
 	w.WriteHeader(http.StatusCreated)
 }
 
