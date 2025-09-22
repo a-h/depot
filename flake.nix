@@ -78,7 +78,7 @@
           # https://docs.docker.com/engine/api/v1.41/#operation/ImageBuild
           config = {
             Cmd = [ "depot" "serve" ];
-            Env = [ "DEPOT_NIX_STORE=/depot-nix-store" ];
+            Env = [ "DEPOT_STORE=/depot-store" ];
             User = "user:user";
             ExposedPorts = {
               "8080/tcp" = { };

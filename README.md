@@ -133,7 +133,7 @@ go run ./cmd/depot
 Interactive: true
 
 ```bash
-go run ./cmd/depot serve --store-path=$HOME/depot-nix-store --verbose
+go run ./cmd/depot serve --store-path=$HOME/depot-store --verbose
 ```
 
 ### nix-build
@@ -178,8 +178,8 @@ docker load < result
 Interactive: true
 
 ```bash
-mkdir -p ${HOME}/depot-nix-store
-docker run --rm -v ${HOME}/depot-nix-store:/depot-nix-store -p 8080:8080 ghcr.io/a-h/depot:latest
+mkdir -p ${HOME}/depot-store
+docker run --rm -v ${HOME}/depot-store:/depot-store -p 8080:8080 ghcr.io/a-h/depot:latest
 ```
 
 ### push-store-path
@@ -223,7 +223,7 @@ Warning: this may damage the running db.
 Interactive: true
 
 ```bash
-sqlite3 -header -column "file:$HOME/depot-nix-store/var/nix/db/db.sqlite?ro=1" "SELECT hashPart, namePart FROM NARs WHERE namePart LIKE '%source%';"
+sqlite3 -header -column "file:$HOME/depot-store/depot.db?ro=1" "SELECT hashPart, namePart FROM NARs WHERE namePart LIKE '%source%';"
 ```
 
 ### push-without-tools
@@ -233,14 +233,14 @@ export FLAKE=github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526
 export   PKG=github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl
 
 # Copy flake input and source to the store.
-nix flake archive --to http://localhost:8080 $FLAKE --refresh
+nix flake archive --to http://localhost:8080/nix $FLAKE --refresh
 
 # Copy the sl package of the flake, and it derivation.
-nix copy --to 'http://localhost:8080' $PKG --refresh
-nix copy --derivation --to 'http://localhost:8080' $PKG --refresh
+nix copy --to 'http://localhost:8080/nix' $PKG --refresh
+nix copy --derivation --to 'http://localhost:8080/nix' $PKG --refresh
 
 # Copy realised paths of inputs to the derivation so that we can build it on the remote.
-nix copy --to http://localhost:8080 $(
+nix copy --to http://localhost:8080/nix $(
   nix-store --realise $(
     nix derivation show "$PKG" | jq -r '.[].inputDrvs | keys[]'
   )

@@ -59,14 +59,14 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 		if err != nil {
 			return fmt.Errorf("failed to get user home directory: %w", err)
 		}
-		cmd.DatabaseURL = fmt.Sprintf("file:%s/depot-nix-store/depot.db?mode=rwc", home)
+		cmd.DatabaseURL = fmt.Sprintf("file:%s/depot-store/depot.db?mode=rwc", home)
 	}
 	if cmd.StorePath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("failed to get user home directory: %w", err)
 		}
-		cmd.StorePath = fmt.Sprintf("%s/depot-nix-store/store", home)
+		cmd.StorePath = fmt.Sprintf("%s/depot-store/store", home)
 	}
 
 	// Create a new store.
@@ -133,7 +133,7 @@ func main() {
 
 	ctx := kong.Parse(&cli,
 		kong.Name("depot"),
-		kong.Description("Serve your local Nix store over HTTP"),
+		kong.Description("Serve Nix and NPM packages"),
 		kong.UsageOnError(),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
