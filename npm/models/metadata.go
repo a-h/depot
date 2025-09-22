@@ -25,8 +25,8 @@ type AbbreviatedVersion struct {
 	BundledDependencies  []string          `json:"bundledDependencies,omitempty"`
 	PeerDependencies     map[string]string `json:"peerDependencies,omitempty"`
 	Bin                  json.RawMessage   `json:"bin,omitempty"`
-	Directories          map[string]string `json:"directories,omitempty"`
-	Engines              map[string]string `json:"engines,omitempty"`
+	Directories          json.RawMessage   `json:"directories,omitempty"`
+	Engines              json.RawMessage   `json:"engines,omitempty"`
 	ID                   string            `json:"_id"`
 	NodeVersion          string            `json:"_nodeVersion,omitempty"`
 	NpmVersion           string            `json:"_npmVersion,omitempty"`

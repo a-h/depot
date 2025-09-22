@@ -46,7 +46,7 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if file exists and open for reading using Storage interface.
-	file, exists, err := h.storage.Read(requestPath)
+	file, exists, err := h.storage.Get(requestPath)
 	if err != nil {
 		h.log.Error("failed to read tarball", slog.String("path", requestPath), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -81,7 +81,16 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use Storage interface for writing.
-	if err := h.storage.Write(path, r.Body); err != nil {
+	f, err := h.storage.Put(path)
+	if err != nil {
+		h.log.Error("failed to create tarball", slog.String("path", path), slog.Any("error", err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	// Copy request body to storage.
+	if _, err = io.Copy(f, r.Body); err != nil {
 		h.log.Error("failed to save tarball", slog.String("path", path), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

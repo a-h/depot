@@ -9,6 +9,7 @@ import (
 	"github.com/a-h/depot/cmd/globals"
 	npmpush "github.com/a-h/depot/npm/push"
 	"github.com/a-h/depot/npm/save"
+	"github.com/a-h/depot/storage"
 )
 
 type NPMCmd struct {
@@ -29,7 +30,8 @@ func (cmd *Save) Run(globals *globals.Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	saver := save.New(log, cmd.Dir)
+	storage := storage.NewFileSystem(cmd.Dir)
+	saver := save.New(log, storage)
 
 	if cmd.Stdin {
 		return saver.SaveFromReader(context.Background(), os.Stdin)

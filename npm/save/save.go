@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"iter"
 	"log/slog"
 	"strings"
 
 	"github.com/a-h/depot/npm/download"
+	"github.com/a-h/depot/storage"
 )
 
 // Saver saves NPM packages from various sources.
@@ -18,10 +20,10 @@ type Saver struct {
 }
 
 // New creates a new Saver instance.
-func New(log *slog.Logger, baseDir string) *Saver {
+func New(log *slog.Logger, storage storage.Storage) *Saver {
 	return &Saver{
 		log:        log,
-		downloader: download.New(log, baseDir),
+		downloader: download.New(log, storage),
 	}
 }
 
@@ -37,30 +39,79 @@ func (s *Saver) Save(ctx context.Context, packages []string) error {
 	}
 
 	s.log.Info("saving packages", slog.Int("count", len(specs)))
-	return s.downloader.DownloadPackages(ctx, specs)
+	alreadySeen := make(map[string]bool)
+	specIter := NewSliceIterator(specs)
+	for spec := range specIter.Iterate() {
+		if alreadySeen[spec.String()] {
+			continue
+		}
+		alreadySeen[spec.String()] = true
+		deps, err := s.downloader.Download(ctx, spec, false, false)
+		if err != nil {
+			return fmt.Errorf("failed to download package %s: %w", spec.String(), err)
+		}
+		s.log.Info("downloaded package", slog.String("package", spec.String()), slog.Int("dependencies", len(deps)))
+		for _, d := range deps {
+			if strings.HasPrefix(d.Version, "file:") {
+				s.log.Error("skipping file: dependency", slog.String("package", spec.String()), slog.String("dependency", d.String()))
+				panic("Arse")
+			}
+
+			if alreadySeen[d.String()] {
+				continue
+			}
+			specIter.Append(d)
+		}
+	}
+	s.log.Info("all packages saved", slog.Int("total", len(alreadySeen)))
+	return nil
+}
+
+func NewSliceIterator[T any](slice []T) *SliceIterator[T] {
+	return &SliceIterator[T]{slice: slice}
+}
+
+type SliceIterator[T any] struct {
+	slice []T
+}
+
+func (it *SliceIterator[T]) Append(v T) {
+	it.slice = append(it.slice, v)
+}
+
+func (it *SliceIterator[T]) Iterate() iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for i := 0; ; i++ {
+			if i >= len(it.slice) {
+				break
+			}
+			if !yield(it.slice[i]) {
+				return
+			}
+		}
+	}
 }
 
 // SaveFromReader saves packages from a reader (e.g., stdin or file).
 func (s *Saver) SaveFromReader(ctx context.Context, reader io.Reader) error {
-	var specs []download.PackageSpec
 	scanner := bufio.NewScanner(reader)
 
+	var lines []string
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue // Skip empty lines and comments.
 		}
-		specs = append(specs, download.ParsePackageSpec(line))
+		lines = append(lines, line)
 	}
 
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
-	if len(specs) == 0 {
+	if len(lines) == 0 {
 		return fmt.Errorf("no packages found in input")
 	}
 
-	s.log.Info("saving packages from input", slog.Int("count", len(specs)))
-	return s.downloader.DownloadPackages(ctx, specs)
+	return s.Save(ctx, lines)
 }

@@ -9,12 +9,12 @@ import (
 
 // Storage interface abstracts file storage operations for reading and writing.
 type Storage interface {
-	// Read opens a file for reading and returns a ReadCloser and whether the file exists.
-	Read(filename string) (io.ReadCloser, bool, error)
-
-	// Write creates or overwrites a file with content from the ReadCloser.
-	Write(filename string, data io.ReadCloser) error
+	Stat(filename string) (size int64, exists bool, err error)
+	Get(filename string) (r io.ReadCloser, exists bool, err error)
+	Put(filename string) (w io.WriteCloser, err error)
 }
+
+var _ Storage = (*FileSystem)(nil)
 
 // FileSystem implements Storage using the local filesystem.
 type FileSystem struct {
@@ -28,7 +28,19 @@ func NewFileSystem(basePath string) *FileSystem {
 	}
 }
 
-func (fs *FileSystem) Read(filename string) (io.ReadCloser, bool, error) {
+func (fs *FileSystem) Stat(filename string) (size int64, exists bool, err error) {
+	fullPath := filepath.Join(fs.basePath, filename)
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+	return info.Size(), true, nil
+}
+
+func (fs *FileSystem) Get(filename string) (r io.ReadCloser, exists bool, err error) {
 	fullPath := filepath.Join(fs.basePath, filename)
 	file, err := os.Open(fullPath)
 	if err != nil {
@@ -40,27 +52,19 @@ func (fs *FileSystem) Read(filename string) (io.ReadCloser, bool, error) {
 	return file, true, nil
 }
 
-func (fs *FileSystem) Write(filename string, data io.ReadCloser) error {
-	defer data.Close()
-
+func (fs *FileSystem) Put(filename string) (w io.WriteCloser, err error) {
 	fullPath := filepath.Join(fs.basePath, filename)
 
 	// Create directory structure.
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
+		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Create and write file.
+	// Create.
 	file, err := os.Create(fullPath)
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, data)
-	if err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
+		return nil, fmt.Errorf("failed to create file: %w", err)
 	}
 
-	return nil
+	return file, nil
 }
