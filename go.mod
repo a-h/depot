@@ -4,7 +4,7 @@ go 1.24.6
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/a-h/kv v0.0.0-20250908160439-e565e1ee0f37
+	github.com/a-h/kv v0.0.0-20250921162148-16eb8c93d029
 	github.com/alecthomas/kong v1.8.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/jackc/pgx/v5 v5.7.4

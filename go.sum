@@ -1,7 +1,7 @@
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
-github.com/a-h/kv v0.0.0-20250908160439-e565e1ee0f37 h1:K7yjY6LBDL7NqkJrSozhpHLhnvieebWbbTICv6LwcDg=
-github.com/a-h/kv v0.0.0-20250908160439-e565e1ee0f37/go.mod h1:dUigvmdU9ik/elHCeDKnphOVAQll1RgrpgFMXWPIt8s=
+github.com/a-h/kv v0.0.0-20250921162148-16eb8c93d029 h1:/tM65vfwZqA6p0FUnUlFZTPAySudchMfotgSu987FOs=
+github.com/a-h/kv v0.0.0-20250921162148-16eb8c93d029/go.mod h1:dUigvmdU9ik/elHCeDKnphOVAQll1RgrpgFMXWPIt8s=
 github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=
 github.com/alecthomas/assert/v2 v2.11.0/go.mod h1:Bze95FyfUr7x34QZrjL+XP+0qgp/zg8yS+TtBj1WA3k=
 github.com/alecthomas/kong v1.8.1 h1:6aamvWBE/REnR/BCq10EcozmcpUPc5aGI1lPAWdB0EE=
