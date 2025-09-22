@@ -6,7 +6,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     version = {
-      url = "github:a-h/versioN";
+      url = "github:a-h/version";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     xc = {
