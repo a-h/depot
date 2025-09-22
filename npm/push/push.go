@@ -60,11 +60,13 @@ func (p *Pusher) Push(ctx context.Context, baseDir string) error {
 			}
 
 			packageCount++
-			p.log.Info("processing package", slog.String("name", metadata.Name), slog.Int("count", packageCount))
+			p.log.Debug("pushing package", slog.String("name", metadata.Name), slog.Int("count", packageCount))
 
 			if err := p.pushPackage(ctx, metadata, filepath.Dir(path)); err != nil {
 				return fmt.Errorf("failed to push %s: %w", metadata.Name, err)
 			}
+
+			p.log.Info("package pushed", slog.String("name", metadata.Name), slog.Int("count", packageCount))
 		}
 
 		return nil
@@ -84,12 +86,12 @@ func (p *Pusher) Push(ctx context.Context, baseDir string) error {
 
 // pushPackage pushes a single package to the remote depot.
 func (p *Pusher) pushPackage(ctx context.Context, metadata models.AbbreviatedPackage, packageDir string) error {
-	p.log.Info("pushing package", slog.String("name", metadata.Name))
+	p.log.Debug("pushing package", slog.String("name", metadata.Name))
 
-	// Push each version.
+	// Push each version that we bothered to download.
 	for version, versionInfo := range metadata.Versions {
 		if _, err := os.Stat(filepath.Join(packageDir, fmt.Sprintf("%s-%s.tgz", versionInfo.Name, versionInfo.Version))); err != nil {
-			p.log.Warn("skipping version, tarball not found", slog.String("package", versionInfo.Name), slog.String("version", versionInfo.Version))
+			p.log.Debug("skipping version, tarball not found", slog.String("package", versionInfo.Name), slog.String("version", versionInfo.Version))
 			continue
 		}
 		// DistTags are a map of tag name to version.
@@ -105,13 +107,13 @@ func (p *Pusher) pushPackage(ctx context.Context, metadata models.AbbreviatedPac
 		}
 	}
 
-	p.log.Info("package pushed successfully", slog.String("name", metadata.Name))
+	p.log.Debug("package pushed successfully", slog.String("name", metadata.Name))
 	return nil
 }
 
 // pushVersion pushes a single version of a package.
 func (p *Pusher) pushVersion(ctx context.Context, versionInfo models.AbbreviatedVersion, tagsForVersion []string, packageDir string) error {
-	p.log.Info("pushing version", slog.String("package", versionInfo.Name), slog.String("version", versionInfo.Version))
+	p.log.Debug("pushing version", slog.String("package", versionInfo.Name), slog.String("version", versionInfo.Version))
 
 	// Find the tarball file.
 	tarballName := fmt.Sprintf("%s-%s.tgz", versionInfo.Name, versionInfo.Version)
@@ -147,7 +149,7 @@ func (p *Pusher) pushVersion(ctx context.Context, versionInfo models.Abbreviated
 		}
 	}
 
-	p.log.Info("version pushed successfully", slog.String("package", versionInfo.Name), slog.String("version", versionInfo.Version))
+	p.log.Info("pushed version", slog.String("package", versionInfo.Name), slog.String("version", versionInfo.Version))
 	return nil
 }
 
