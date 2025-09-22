@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/a-h/depot/auth"
 	"github.com/a-h/depot/cmd/globals"
@@ -54,16 +55,6 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 		opts.Level = slog.LevelDebug
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
-	if cmd.DatabaseURL == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get user home directory: %w", err)
-		}
-		if err := os.MkdirAll(fmt.Sprintf("%s/depot-store", home), 0755); err != nil {
-			return fmt.Errorf("failed to create store directory: %w", err)
-		}
-		cmd.DatabaseURL = fmt.Sprintf("file:%s/depot-store/depot.db?mode=rwc", home)
-	}
 	if cmd.StorePath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -73,6 +64,9 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 	}
 	if err := os.MkdirAll(cmd.StorePath, 0755); err != nil {
 		return fmt.Errorf("failed to create store directory: %w", err)
+	}
+	if cmd.DatabaseURL == "" {
+		cmd.DatabaseURL = fmt.Sprintf("file:%s?mode=rwc", filepath.Join(cmd.StorePath, "depot.db"))
 	}
 
 	// Create a new store.
