@@ -19,8 +19,8 @@ import (
 func New(log *slog.Logger, nixdb *nixdb.DB, npmdb *npmdb.DB, storePath string, authConfig *auth.AuthConfig, privateKey *signature.SecretKey) http.Handler {
 	mux := http.NewServeMux()
 
-	nixStoragePath := filepath.Join(storePath, "nix")
-	nih := nixhandler.New(log, nixdb, nixStoragePath, privateKey)
+	nixStorage := storage.NewFileSystem(filepath.Join(storePath, "nix"))
+	nih := nixhandler.New(log, nixdb, nixStorage, privateKey)
 	mux.Handle("/nix/", http.StripPrefix("/nix", nih))
 
 	npmStorage := storage.NewFileSystem(filepath.Join(storePath, "npm"))

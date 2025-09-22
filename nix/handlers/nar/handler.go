@@ -5,23 +5,23 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/a-h/depot/storage"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
 )
 
-func New(log *slog.Logger, storePath string) Handler {
+func New(log *slog.Logger, storage storage.Storage) Handler {
 	return Handler{
-		log:       log,
-		storePath: storePath,
+		log:     log,
+		storage: storage,
 	}
 }
 
 type Handler struct {
-	log       *slog.Logger
-	storePath string
+	log     *slog.Logger
+	storage storage.Storage
 }
 
 // getFileExtensionAndContentType extracts the file extension from the URL path
@@ -71,30 +71,30 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fileExt, contentType := getFileExtensionAndContentType(r.URL.Path)
+	narPath := filepath.Join("nar", hashPart+fileExt)
 
-	narPath := filepath.Join(h.storePath, "nar", hashPart+fileExt)
-	file, err := os.Open(narPath)
+	size, exists, err := h.storage.Stat(narPath)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			h.log.Error("failed to open NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
+		h.log.Error("failed to stat NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if !exists {
 		h.log.Debug("NAR file not found", slog.String("narPath", narPath), slog.String("hashPart", hashPart))
 		http.Error(w, "NAR file not found", http.StatusNotFound)
 		return
 	}
-	defer file.Close()
 
-	fileInfo, err := file.Stat()
-	if err != nil {
-		h.log.Error("failed to stat NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
-		http.Error(w, "failed to get NAR file info", http.StatusInternalServerError)
+	file, exists, err := h.storage.Get(narPath)
+	if err != nil || !exists {
+		h.log.Error("failed to open NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer file.Close()
 
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
 
 	if r.Method == http.MethodHead {
 		// Skip writing body for HEAD requests.
@@ -126,15 +126,8 @@ func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
 
 	fileExt, _ := getFileExtensionAndContentType(r.URL.Path)
 
-	narDir := filepath.Join(h.storePath, "nar")
-	if err := os.MkdirAll(narDir, 0755); err != nil {
-		h.log.Error("failed to create NAR storage directory", slog.String("hashPart", hashPart), slog.Any("error", err))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	narPath := filepath.Join(narDir, hashPart+fileExt)
-	file, err := os.Create(narPath)
+	narPath := filepath.Join("nar", hashPart+fileExt)
+	file, err := h.storage.Put(narPath)
 	if err != nil {
 		h.log.Error("failed to create NAR file", slog.String("hashPart", hashPart), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -145,13 +138,6 @@ func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(file, r.Body)
 	if err != nil {
 		h.log.Error("failed to write NAR file", slog.String("hashPart", hashPart), slog.Any("error", err))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	// Ensure all data is written to disk before returning.
-	if err := file.Sync(); err != nil {
-		h.log.Error("failed to sync NAR file", slog.String("hashPart", hashPart), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

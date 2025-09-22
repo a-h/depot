@@ -12,13 +12,14 @@ import (
 	narhandler "github.com/a-h/depot/nix/handlers/nar"
 	narinfohandler "github.com/a-h/depot/nix/handlers/narinfo"
 	nixcacheinfo "github.com/a-h/depot/nix/handlers/nixcacheinfo"
+	"github.com/a-h/depot/storage"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
 
-func New(log *slog.Logger, db *db.DB, storePath string, privateKey *signature.SecretKey) http.Handler {
+func New(log *slog.Logger, db *db.DB, storage storage.Storage, privateKey *signature.SecretKey) http.Handler {
 	nci := nixcacheinfo.New(log, privateKey)
 	nih := narinfohandler.New(log, db, privateKey)
-	nh := narhandler.New(log, storePath)
+	nh := narhandler.New(log, storage)
 	lh := loghandler.New(log)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

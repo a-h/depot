@@ -59,6 +59,9 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 		if err != nil {
 			return fmt.Errorf("failed to get user home directory: %w", err)
 		}
+		if err := os.MkdirAll(fmt.Sprintf("%s/depot-store", home), 0755); err != nil {
+			return fmt.Errorf("failed to create store directory: %w", err)
+		}
 		cmd.DatabaseURL = fmt.Sprintf("file:%s/depot-store/depot.db?mode=rwc", home)
 	}
 	if cmd.StorePath == "" {
@@ -66,7 +69,10 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 		if err != nil {
 			return fmt.Errorf("failed to get user home directory: %w", err)
 		}
-		cmd.StorePath = fmt.Sprintf("%s/depot-store/store", home)
+		cmd.StorePath = fmt.Sprintf("%s/depot-store", home)
+	}
+	if err := os.MkdirAll(cmd.StorePath, 0755); err != nil {
+		return fmt.Errorf("failed to create store directory: %w", err)
 	}
 
 	// Create a new store.

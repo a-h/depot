@@ -19,6 +19,7 @@ import (
 
 	"github.com/a-h/depot/nix/db"
 	"github.com/a-h/depot/nix/handlers"
+	"github.com/a-h/depot/storage"
 	"github.com/a-h/depot/store"
 	"github.com/nix-community/go-nix/pkg/nar"
 	"github.com/nix-community/go-nix/pkg/narinfo"
@@ -114,6 +115,7 @@ func (ts *testServer) start(t *testing.T) {
 	ts.nixLogs = newThreadSafeWriter()
 
 	storePath := filepath.Join(ts.tempDir, "store")
+	storage := storage.NewFileSystem(storePath)
 
 	// Initialize database and handlers.
 	sqliteDBPath := fmt.Sprintf("file:%s?mode=rwc", filepath.Join(ts.tempDir, "depot.db"))
@@ -136,7 +138,7 @@ func (ts *testServer) start(t *testing.T) {
 	// Create HTTP server.
 	ts.server = &http.Server{
 		Addr:    ":8080",
-		Handler: handlers.New(log, db.New(store), storePath, &privateKey),
+		Handler: handlers.New(log, db.New(store), storage, &privateKey),
 	}
 
 	// Start server in goroutine.
