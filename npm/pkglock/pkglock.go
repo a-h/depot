@@ -24,21 +24,42 @@ type Package struct {
 	Dependencies map[string]string `json:"dependencies"`
 }
 
+// Parse reads an npm package-lock.json (v2/v3) and returns a sorted
+// list of unique "name@version" strings for registry packages.
 func Parse(ctx context.Context, r io.Reader) (pkgs []string, err error) {
 	var lockFile NPMLock
-	err = json.NewDecoder(r).Decode(&lockFile)
-	if err != nil {
+	if err = json.NewDecoder(r).Decode(&lockFile); err != nil {
 		return nil, fmt.Errorf("failed to parse lock file: %w", err)
 	}
-	var uniquePkgs = make(map[string]struct{})
-	for name, pkg := range lockFile.Packages {
-		pkg.Name = stripNodeModulesPath(name)
-		if pkg.Name == "" || pkg.Version == "" {
+
+	unique := make(map[string]struct{})
+
+	for installPath, pkg := range lockFile.Packages {
+		if installPath == "" {
 			continue
 		}
-		uniquePkgs[fmt.Sprintf("%s@%s", pkg.Name, pkg.Version)] = struct{}{}
+
+		// Skip packages that don't come from the npm registry (local, git, etc.).
+		if pkg.Resolved == "" ||
+			strings.HasPrefix(pkg.Resolved, "file:") ||
+			strings.HasPrefix(pkg.Resolved, "git+") {
+			continue
+		}
+
+		// Use the true published name if present.
+		name := pkg.Name
+		if name == "" {
+			name = stripNodeModulesPath(installPath)
+		}
+
+		if name == "" || pkg.Version == "" {
+			continue
+		}
+
+		unique[fmt.Sprintf("%s@%s", name, pkg.Version)] = struct{}{}
 	}
-	pkgs = slices.Collect(maps.Keys(uniquePkgs))
+
+	pkgs = slices.Collect(maps.Keys(unique))
 	slices.Sort(pkgs)
 	return pkgs, nil
 }

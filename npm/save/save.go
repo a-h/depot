@@ -52,12 +52,14 @@ func (s *Saver) Save(ctx context.Context, packages []string) error {
 		}
 		s.log.Info("downloaded package", slog.String("package", spec.String()), slog.Int("dependencies", len(deps)))
 		for _, d := range deps {
+			if alreadySeen[d.String()] {
+				continue
+			}
 			if strings.HasPrefix(d.Version, "file:") {
 				s.log.Error("skipping file: dependency", slog.String("package", spec.String()), slog.String("dependency", d.String()))
-				panic("Arse")
 			}
-
-			if alreadySeen[d.String()] {
+			if strings.HasPrefix(d.Version, "npm:") {
+				s.log.Info("skipping npm: alias dependency", slog.String("package", spec.String()), slog.String("dependency", d.String()))
 				continue
 			}
 			specIter.Append(d)
