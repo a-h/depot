@@ -41,17 +41,16 @@ func (cmd *Save) Run(globals *globals.Globals) error {
 	}
 
 	if len(cmd.Packages) == 1 && strings.HasSuffix(cmd.Packages[0], "package-lock.json") {
-		lockFilePath := cmd.Packages[0]
-		if stat, err := os.Stat(lockFilePath); err == nil {
-			if stat.IsDir() {
-				return fmt.Errorf("package-lock.json is a directory")
-			}
-			pkgs, err := pkglock.Parse(ctx, lockFilePath)
-			if err != nil {
-				return fmt.Errorf("failed to parse package-lock.json: %w", err)
-			}
-			cmd.Packages = pkgs
+		f, err := os.Open(cmd.Packages[0])
+		if err != nil {
+			return fmt.Errorf("failed to open package-lock.json: %w", err)
 		}
+		defer f.Close()
+		pkgs, err := pkglock.Parse(ctx, f)
+		if err != nil {
+			return fmt.Errorf("failed to parse package-lock.json: %w", err)
+		}
+		cmd.Packages = pkgs
 	}
 
 	if len(cmd.Packages) == 0 {

@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"io"
+	"maps"
+	"slices"
+	"strings"
 )
 
 type NPMLock struct {
@@ -21,18 +24,29 @@ type Package struct {
 	Dependencies map[string]string `json:"dependencies"`
 }
 
-func Parse(ctx context.Context, lockFilePath string) (pkgs []string, err error) {
-	f, err := os.Open(lockFilePath)
-	if err != nil {
-		return pkgs, fmt.Errorf("failed to open lock file %s: %w", lockFilePath, err)
-	}
+func Parse(ctx context.Context, r io.Reader) (pkgs []string, err error) {
 	var lockFile NPMLock
-	err = json.NewDecoder(f).Decode(&lockFile)
+	err = json.NewDecoder(r).Decode(&lockFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse lock file: %w", err)
 	}
-	for _, pkg := range lockFile.Packages {
-		pkgs = append(pkgs, fmt.Sprintf("%s@%s", pkg.Name, pkg.Version))
+	var uniquePkgs = make(map[string]struct{})
+	for name, pkg := range lockFile.Packages {
+		pkg.Name = stripNodeModulesPath(name)
+		if pkg.Name == "" || pkg.Version == "" {
+			continue
+		}
+		uniquePkgs[fmt.Sprintf("%s@%s", pkg.Name, pkg.Version)] = struct{}{}
 	}
+	pkgs = slices.Collect(maps.Keys(uniquePkgs))
+	slices.Sort(pkgs)
 	return pkgs, nil
+}
+
+func stripNodeModulesPath(p string) string {
+	idx := strings.LastIndex(p, "node_modules/")
+	if idx == -1 {
+		return p
+	}
+	return p[idx+len("node_modules/"):]
 }
