@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/a-h/depot/cmd/globals"
+	"github.com/a-h/depot/npm/pkglock"
 	npmpush "github.com/a-h/depot/npm/push"
 	"github.com/a-h/depot/npm/save"
 	"github.com/a-h/depot/storage"
@@ -19,7 +21,7 @@ type NPMCmd struct {
 
 type Save struct {
 	Dir      string   `help:"Directory to save packages to" default:".depot-storage/npm" env:"DEPOT_NPM_DIR"`
-	Packages []string `arg:"" help:"Package names to save (format: package@version)"`
+	Packages []string `arg:"" help:"Package names to save (format: package@version or ./path/to/package-lock.json)" default:"./package-lock.json"`
 	Stdin    bool     `help:"Read package list from stdin" default:"false"`
 }
 
@@ -30,18 +32,33 @@ func (cmd *Save) Run(globals *globals.Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
+	ctx := context.Background()
 	storage := storage.NewFileSystem(cmd.Dir)
 	saver := save.New(log, storage)
 
 	if cmd.Stdin {
-		return saver.SaveFromReader(context.Background(), os.Stdin)
+		return saver.SaveFromReader(ctx, os.Stdin)
 	}
 
-	if len(cmd.Packages) > 0 {
-		return saver.Save(context.Background(), cmd.Packages)
+	if len(cmd.Packages) == 1 && strings.HasSuffix(cmd.Packages[0], "package-lock.json") {
+		lockFilePath := cmd.Packages[0]
+		if stat, err := os.Stat(lockFilePath); err == nil {
+			if stat.IsDir() {
+				return fmt.Errorf("package-lock.json is a directory")
+			}
+			pkgs, err := pkglock.Parse(ctx, lockFilePath)
+			if err != nil {
+				return fmt.Errorf("failed to parse package-lock.json: %w", err)
+			}
+			cmd.Packages = append(cmd.Packages, pkgs...)
+		}
 	}
 
-	return fmt.Errorf("no packages specified and stdin not enabled")
+	if len(cmd.Packages) == 0 {
+		return fmt.Errorf("no packages specified and stdin not enabled")
+	}
+
+	return saver.Save(ctx, cmd.Packages)
 }
 
 type Push struct {
