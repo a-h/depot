@@ -50,7 +50,7 @@ func (cmd *Save) Run(globals *globals.Globals) error {
 			if err != nil {
 				return fmt.Errorf("failed to parse package-lock.json: %w", err)
 			}
-			cmd.Packages = append(cmd.Packages, pkgs...)
+			cmd.Packages = pkgs
 		}
 	}
 
