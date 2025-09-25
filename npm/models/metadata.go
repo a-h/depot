@@ -17,7 +17,7 @@ type AbbreviatedPackage struct {
 type AbbreviatedVersion struct {
 	Name                 string            `json:"name"`
 	Version              string            `json:"version"`
-	Deprecated           string            `json:"deprecated,omitempty"`
+	Deprecated           json.RawMessage   `json:"deprecated,omitempty"`
 	Dist                 *Dist             `json:"dist"`
 	Dependencies         map[string]string `json:"dependencies,omitempty"`
 	OptionalDependencies map[string]string `json:"optionalDependencies,omitempty"`
@@ -27,9 +27,9 @@ type AbbreviatedVersion struct {
 	Bin                  json.RawMessage   `json:"bin,omitempty"`
 	Directories          json.RawMessage   `json:"directories,omitempty"`
 	Engines              json.RawMessage   `json:"engines,omitempty"`
-	ID                   string            `json:"_id"`
-	NodeVersion          string            `json:"_nodeVersion,omitempty"`
-	NpmVersion           string            `json:"_npmVersion,omitempty"`
+	ID                   json.RawMessage   `json:"_id"`
+	NodeVersion          json.RawMessage   `json:"_nodeVersion,omitempty"`
+	NpmVersion           json.RawMessage   `json:"_npmVersion,omitempty"`
 	NpmUser              *Person           `json:"_npmUser,omitempty"`
 	HasShrinkwrap        bool              `json:"_hasShrinkwrap,omitempty"`
 }
