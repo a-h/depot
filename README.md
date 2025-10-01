@@ -274,3 +274,13 @@ nix copy --to http://localhost:8080/nix $(
   )
 )
 ```
+
+## Notes
+
+If you're hosting Depot on Docker or Kubernetes, you may encounter SQLite disk I/O errors due to filesystem restrictions. If you see an error like this:
+
+```
+sqlite: step: disk I/O error
+```
+
+This is because SSHFS (Rancher Desktop's default), 9fs and other network filesystems do not support file locking, which SQLite requires. To resolve this, you can use a volume that supports file locking, such as a local disk or a network filesystem that supports it.
