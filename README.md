@@ -201,6 +201,14 @@ docker rmi ghcr.io/a-h/depot:latest || true
 docker load < result
 ```
 
+### microk8s-load
+
+Interactive: true
+
+```bash
+gunzip -c result | microk8s ctr image import -
+```
+
 ### docker-run
 
 Interactive: true

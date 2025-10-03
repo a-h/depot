@@ -66,7 +66,7 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 		return fmt.Errorf("failed to create store directory: %w", err)
 	}
 	if cmd.DatabaseURL == "" {
-		cmd.DatabaseURL = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_busy_timeout=5000&_txlock=immediate&_journal_mode=WAL", filepath.Join(cmd.StorePath, "depot.db"))
+		cmd.DatabaseURL = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_busy_timeout=5000&_txlock=immediate&_journal_mode=DELETE", filepath.Join(cmd.StorePath, "depot.db"))
 	}
 
 	// Create a new store.

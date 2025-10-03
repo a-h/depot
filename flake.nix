@@ -71,6 +71,7 @@
             pkgs.bash
             pkgs.cacert
             pkgs.dockerTools.caCertificates
+            pkgs.sqlite
             (dockerUser pkgs)
             (app { inherit name pkgs system; })
           ];

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	rqlitehttp "github.com/rqlite/rqlite-go-http"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/a-h/kv/rqlitekv"
 	"github.com/a-h/kv/sqlitekv"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
 
@@ -37,7 +39,20 @@ func New(ctx context.Context, dbType, url string) (store kv.Store, closer func()
 }
 
 func newSqliteStore(dsn string) (store kv.Store, closer func() error, err error) {
-	pool, err := sqlitex.NewPool(dsn, sqlitex.PoolOptions{})
+	dsnURI, err := url.Parse(dsn)
+	if err != nil {
+		return nil, nil, err
+	}
+	opts := sqlitex.PoolOptions{
+		Flags: sqlite.OpenReadWrite | sqlite.OpenCreate | sqlite.OpenURI,
+	}
+	// Enable WAL mode if specified in the DSN.
+	// WAL doesn't work well with container volumes.
+	journalMode := dsnURI.Query().Get("_journal_mode")
+	if strings.EqualFold(journalMode, "wal") {
+		opts.Flags |= sqlite.OpenWAL
+	}
+	pool, err := sqlitex.NewPool(dsn, opts)
 	if err != nil {
 		return nil, nil, err
 	}
