@@ -1,0 +1,1219 @@
+{
+  "alternate-locations": [],
+  "files": [
+    {
+      "core-metadata": {
+        "sha256": "c82b2da56a33d8ebee89896abef9e31f065fd9c2ca36939486ee90186f944c64"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "c82b2da56a33d8ebee89896abef9e31f065fd9c2ca36939486ee90186f944c64"
+      },
+      "filename": "agate-0.5.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "61f2fce61ddc76c5d480c3729dd8657c8f2cdd9789f3a1e1309ab454f35d8ae1"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 29012,
+      "upload-time": "2015-08-28T17:59:30.994041Z",
+      "url": "https://files.pythonhosted.org/packages/fb/a0/1051e4e3b2ce37f67fc1feaef4d2cb14bd3ab11b61fa6fa68581fdb1678c/agate-0.5.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-0.5.0.tar.gz",
+      "hashes": {
+        "sha256": "943f45254f1c8c9ff32385455202f7ad206a29a5ea6cc559415f76d11c28cc7b"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 11427,
+      "upload-time": "2015-08-28T17:59:27.819788Z",
+      "url": "https://files.pythonhosted.org/packages/1b/93/8102c6372ff1fee1bcc9d02fac467d8a61a59838c169d144053d041f8a25/agate-0.5.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "9c72fef7066b485d858fb56ca1c379370f275f75537ac9fd6828bdf015326fc2"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "9c72fef7066b485d858fb56ca1c379370f275f75537ac9fd6828bdf015326fc2"
+      },
+      "filename": "agate-0.6.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "7db493eb948e053d0cdfa90779e099546944dcd2c988bd55353152e121f4198f"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 39054,
+      "upload-time": "2015-09-01T14:15:48.900270Z",
+      "url": "https://files.pythonhosted.org/packages/d7/dd/188b411c0b7729f0a62be80591a5687622b23c63c0ae4122b2605c7bbb0b/agate-0.6.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-0.6.0.tar.gz",
+      "hashes": {
+        "sha256": "4f5e03edf7da16a8dccc2eb0dc4ce595e6fc2621b01c95fe8cfc098c4d94e916"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 16502,
+      "upload-time": "2015-09-01T14:15:44.314346Z",
+      "url": "https://files.pythonhosted.org/packages/50/31/7db3638afb9b1840ea5f323a05738e380835660bb55f99f45e0f5bb81a0e/agate-0.6.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "86b0b352fcdb4e9402f0dd36ed6dd72a16c014da153b619569fa9f406a081da5"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "86b0b352fcdb4e9402f0dd36ed6dd72a16c014da153b619569fa9f406a081da5"
+      },
+      "filename": "agate-0.7.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "4771db5dcc1c1bae861352121f2f618f9c8418bf690e798eec3089572d0a7061"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 39918,
+      "upload-time": "2015-09-04T02:58:54.085154Z",
+      "url": "https://files.pythonhosted.org/packages/d0/fd/fb68e4538ab20212a19df9d19d91685e4970d9dfeffbd62ab2f4086f56a1/agate-0.7.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-0.7.0.tar.gz",
+      "hashes": {
+        "sha256": "0812cea745519b4ee7fa073ad938f49d4902fdbc86312d8c0f8818437603d41d"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 17279,
+      "upload-time": "2015-09-04T02:58:51.447955Z",
+      "url": "https://files.pythonhosted.org/packages/0d/0c/6312503bef6942ae3369d4ac30c142cc53640e7fc2bc5be7ff98304d012c/agate-0.7.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "238bc95ec9bca51079ea9a6dd0a0f30774ebe68dea7285b8b0ccc9b41aaa90a8"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "238bc95ec9bca51079ea9a6dd0a0f30774ebe68dea7285b8b0ccc9b41aaa90a8"
+      },
+      "filename": "agate-0.8.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "9196ac9809c3c5c75e750ae8df6c82bf8a1a28cf0b34ad11249ab4ca2cb21738"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 47575,
+      "upload-time": "2015-09-10T02:20:09.658055Z",
+      "url": "https://files.pythonhosted.org/packages/fa/e1/26d03aabaed19d86146283a91fa192a3e4de868feed5db8306eeed3db2c4/agate-0.8.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-0.8.0.tar.gz",
+      "hashes": {
+        "sha256": "6d4606548e1b3142143f55d2307eef0694ef6ef411671d95dbd90ff212818f80"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 19649,
+      "upload-time": "2015-09-10T02:19:57.353788Z",
+      "url": "https://files.pythonhosted.org/packages/93/b1/87ecfc77e4a33b8f3e03e99f31951c24bec3145aabb9ed0a033bc712b344/agate-0.8.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "14b48b9df67c18108a7377cef301dc8cadb49b6132904d29f26139a4a81c295b"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "14b48b9df67c18108a7377cef301dc8cadb49b6132904d29f26139a4a81c295b"
+      },
+      "filename": "agate-0.9.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "991d79c23f5fda1db074f0a8dd5eaefdfe92a89fcfb187916a73c15a0d62a100"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 28893,
+      "upload-time": "2015-09-15T02:44:24.407436Z",
+      "url": "https://files.pythonhosted.org/packages/ff/b8/caea8eac734cb494a9edfa858914aed9bcb449e9335da126ec4dbeb86bfc/agate-0.9.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-0.9.0.tar.gz",
+      "hashes": {
+        "sha256": "560678003f489216d04e0524505cd1c4a93dcf686b4023cfb36b339b65aeb653"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 19757,
+      "upload-time": "2015-09-15T02:44:18.806682Z",
+      "url": "https://files.pythonhosted.org/packages/46/d6/9a41de71837e0b8b41c2dd52314697e9a0dd3f119d44a4138fa36837484d/agate-0.9.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "51ded88f2adf0b218a21aa2092b9af65ae23e107059f2daa8f1afd99e1d2b191"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "51ded88f2adf0b218a21aa2092b9af65ae23e107059f2daa8f1afd99e1d2b191"
+      },
+      "filename": "agate-0.10.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "ba5fe0d449f94f69006075615da562907fb24592d8a1e09a513435073fa0ac0e"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 30057,
+      "upload-time": "2015-09-22T16:01:36.868735Z",
+      "url": "https://files.pythonhosted.org/packages/6a/16/3ede820b1c4253ea99c17bd7e708253aab3c3d0df4629787b7de18b328e7/agate-0.10.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-0.10.0.tar.gz",
+      "hashes": {
+        "sha256": "8a508572a6ed7dc248fbddc3707dd5a74c72b5434f76711c6113a0f169a059b1"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 20551,
+      "upload-time": "2015-09-22T16:01:26.807076Z",
+      "url": "https://files.pythonhosted.org/packages/58/c7/4c75f870d7ba9297aa31c4b3246f17ff4fcd779c159fd3a31c0e8a4f01e2/agate-0.10.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "10e584ff25f4e91a3b97adaecce45468889fae2dab289709bbc704e0955a00c0"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "10e584ff25f4e91a3b97adaecce45468889fae2dab289709bbc704e0955a00c0"
+      },
+      "filename": "agate-0.11.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "f091dc9f66cdb4f3784f71acba12fb34aec4c7854bfc1a7d0a08e574ee827e06"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 33285,
+      "upload-time": "2015-10-07T01:08:19.277724Z",
+      "url": "https://files.pythonhosted.org/packages/20/f2/06c4e4967a6566f21a355738cff742c414f80986ae4d87281f68e6907583/agate-0.11.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-0.11.0.tar.gz",
+      "hashes": {
+        "sha256": "7611a490fe39f16f4f37c1265f877018c3b72e30c5f0630ebba8e5413ec7dd4b"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 23417,
+      "upload-time": "2015-10-07T01:08:14.965440Z",
+      "url": "https://files.pythonhosted.org/packages/e4/1e/95d31a3c747f89b577fa052158b213222c500a2e17ae96daf9496e0759d1/agate-0.11.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "2198730d072ccf75cbf46dbf4be09d4043a083c1760744c23f78bac2856aef7c"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "2198730d072ccf75cbf46dbf4be09d4043a083c1760744c23f78bac2856aef7c"
+      },
+      "filename": "agate-1.0.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "40a8e268eedbe02216086a8f699b3be162196713f2d67be08e5c75dc33d8dace"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 35011,
+      "upload-time": "2015-10-23T02:55:12.204116Z",
+      "url": "https://files.pythonhosted.org/packages/42/fb/8848783bc957301f58e49d7da7be0774eeb344dbb791169d2f25d8960c1c/agate-1.0.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.0.0.tar.gz",
+      "hashes": {
+        "sha256": "b43ad9a6a56e09ac8272079b6b5c876e19a90a021873c422515f39f7d9894e7f"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 24869,
+      "upload-time": "2015-10-23T02:55:08.363393Z",
+      "url": "https://files.pythonhosted.org/packages/11/b4/4ce48969c67c596205ee48c765fcc626e1fe5ae781240d11365d95e77907/agate-1.0.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "839e95f58ebffe897cf6220938190998567601347a0008b258531d2865303287"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "839e95f58ebffe897cf6220938190998567601347a0008b258531d2865303287"
+      },
+      "filename": "agate-1.0.1-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "75c8cb7c2f0320ccbef5d0888d7cdaab845cc7a5071aed980c7b26dcf4b2f3e7"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 35510,
+      "upload-time": "2015-10-30T00:22:36.452118Z",
+      "url": "https://files.pythonhosted.org/packages/50/1d/c9b94d39288ed6cc23007926f81316268062ec65c46d387c09ff14846c46/agate-1.0.1-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.0.1.tar.gz",
+      "hashes": {
+        "sha256": "33da5fe0aa7249430c252881500a539c935bee3c2b8cb53a7a32dbfe8dc3142d"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 25394,
+      "upload-time": "2015-10-30T00:22:29.893121Z",
+      "url": "https://files.pythonhosted.org/packages/89/c5/bfca442138dfb80a6f22eab6d68334e53b54f0e7edeabeba074fd4d96dbe/agate-1.0.1.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "895ba8c9e6aa821972286ff41f02b0ee9eb5c5b68142bb660084663c91e54adc"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "895ba8c9e6aa821972286ff41f02b0ee9eb5c5b68142bb660084663c91e54adc"
+      },
+      "filename": "agate-1.1.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "70fd9eba4e9f137def0d5add8135f67f7bee35c7ee5387bb0c83168eda037a95"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 40179,
+      "upload-time": "2015-11-05T02:52:50.054251Z",
+      "url": "https://files.pythonhosted.org/packages/1c/4c/16ae0da1cb8183dafc220bee1773979f1f96ca9d3f179af4f6413f55cc86/agate-1.1.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.1.0.tar.gz",
+      "hashes": {
+        "sha256": "1c2edc0292aa5f373175a8f6a98ce98643f289da991008f9acbc11ad1145edcc"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 29107,
+      "upload-time": "2015-11-05T02:52:27.781604Z",
+      "url": "https://files.pythonhosted.org/packages/99/81/19e9ddfdff3aa4fc8a2f0dbe97975b6fd432423ab0856be8af2ed8f49b73/agate-1.1.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "8e237cdfe0cc82660e2840cac8ba09f2a6706b86ecd4c839c10d9fbf906275fe"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "8e237cdfe0cc82660e2840cac8ba09f2a6706b86ecd4c839c10d9fbf906275fe"
+      },
+      "filename": "agate-1.2.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "b69bc4290dff7cdd005deeb9ac872fc156bda4fab33b83103798543516a21a17"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 43215,
+      "upload-time": "2016-01-18T23:45:10.688113Z",
+      "url": "https://files.pythonhosted.org/packages/ee/c7/2c462201ecaad754a38aeddd857afe8586cd8a055e12be436e29af16602d/agate-1.2.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.2.0.tar.gz",
+      "hashes": {
+        "sha256": "34cba3d4c1fb0d8ee3868e45e5dc142b7b1656202382aef5e8f2e4832af2be84"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 31460,
+      "upload-time": "2016-01-18T23:45:04.087487Z",
+      "url": "https://files.pythonhosted.org/packages/22/7f/deb4a48309aa6f53b7f2816fb3b5dc84b02e121888bc4573952720d7458c/agate-1.2.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "bb984be2bdce5b3d68bf60d1ec6dfe82aa1e98bf6cea85f8fc40de9584ec9458"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "bb984be2bdce5b3d68bf60d1ec6dfe82aa1e98bf6cea85f8fc40de9584ec9458"
+      },
+      "filename": "agate-1.2.1-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "9dd94d79c2a2154cdef51f4248c4b2825c40bfd44be51053714aee8f17ecb01a"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 46069,
+      "upload-time": "2016-02-05T15:55:00.551081Z",
+      "url": "https://files.pythonhosted.org/packages/86/3a/d6c604a68e1743f760c5b715437f92b30a16f63a0517b35c564e963c3c53/agate-1.2.1-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.2.1.tar.gz",
+      "hashes": {
+        "sha256": "bed7cf844d5a5ba0e9f193048f5403f517849878a86d2d60e5f70d095ede4c1d"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 33623,
+      "upload-time": "2016-02-05T15:54:47.350632Z",
+      "url": "https://files.pythonhosted.org/packages/53/93/8058b3517afab37eb6b196f7928c72769d99c0a858b5e11f87a159e9d2cb/agate-1.2.1.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "dd0968d7bdb507221917c9bc2c8cd4e2ab4264baeea60820700157feb53010b5"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "dd0968d7bdb507221917c9bc2c8cd4e2ab4264baeea60820700157feb53010b5"
+      },
+      "filename": "agate-1.2.2-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "f87a8a9ba400256ee35da01d331a0c1ea768995986fcad8037d81530e41bb422"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 46515,
+      "upload-time": "2016-02-05T21:00:20.736181Z",
+      "url": "https://files.pythonhosted.org/packages/a6/c7/4a83ac007a0ca52f3c245739f540a022cd650fcb9137d0f4a07ffa01af4f/agate-1.2.2-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.2.2.tar.gz",
+      "hashes": {
+        "sha256": "a4259a687d93f3f04b41b5d2602ee2e86d58801a023583fe8ed4c30f14185c40"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 34037,
+      "upload-time": "2016-02-05T21:00:07.686659Z",
+      "url": "https://files.pythonhosted.org/packages/a2/9d/d1fec87d9e62067e8d0eed1f77ee12de2dafb39c5c4d3d5ed6f7c8abcaf4/agate-1.2.2.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "059efa85b1a017753e15d1101a7270397521a0ed6d26ccd1de4899aecc9dbda1"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "059efa85b1a017753e15d1101a7270397521a0ed6d26ccd1de4899aecc9dbda1"
+      },
+      "filename": "agate-1.3.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "7852c170cf54276bdd7a3e7d56d6a3f9e97f60a90ea22dd50fdfaade3d3b86c6"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 51139,
+      "upload-time": "2016-02-29T02:15:14.794359Z",
+      "url": "https://files.pythonhosted.org/packages/50/7e/82bf73f352f8e655ac5afcb098c2f7f82e68202dff72c81fac406f8c5106/agate-1.3.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.3.0.tar.gz",
+      "hashes": {
+        "sha256": "e52af77e89f0f257be3d53951b2b0035e191a28572ef7d5de3d67241ce5df59b"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 38541,
+      "upload-time": "2016-02-29T02:14:53.160316Z",
+      "url": "https://files.pythonhosted.org/packages/20/25/5a5d23c9f9454c45a8959a64170c5ad7728bf408bff552660bb105709563/agate-1.3.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "803ea97ef96ea5358938276ca4dca980e04e0ab1ced90b6abd8008f19a779d06"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "803ea97ef96ea5358938276ca4dca980e04e0ab1ced90b6abd8008f19a779d06"
+      },
+      "filename": "agate-1.3.1-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "4f64baa69d0e5acc318cc702f6db3d1dac1477a9b573b8b37517b78e0df35039"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 103790,
+      "upload-time": "2016-03-30T19:56:18.693548Z",
+      "url": "https://files.pythonhosted.org/packages/af/db/1ce5a12f33167fd5dd3ae85075b92f25284ab82f7093ac01400f97433d21/agate-1.3.1-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.3.1.tar.gz",
+      "hashes": {
+        "sha256": "d160d0263bb35fb3b70cb15f65df7bb4e9a8fd99aa627586cb315f9763ab6bd9"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 42626,
+      "upload-time": "2016-03-30T19:56:07.114447Z",
+      "url": "https://files.pythonhosted.org/packages/c0/75/7a4749bb393846adb58bad5044fb8f32738def6c0d5a2bc7f46180f45582/agate-1.3.1.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "3479a9b464198bcca984ef6e753c82a390fe484f2f5f219b90b42fe4e1cbdf38"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "3479a9b464198bcca984ef6e753c82a390fe484f2f5f219b90b42fe4e1cbdf38"
+      },
+      "filename": "agate-1.4.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "5830a70c6caa5539e73fa5615d54ba88576e4c9f67eb8d76bb3e900c7b650764"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 118574,
+      "upload-time": "2016-05-26T21:24:52.356527Z",
+      "url": "https://files.pythonhosted.org/packages/04/71/2cb61a874560ea2340aa2fe4d136d0ce2ad22d629b822141bb0a6efe9099/agate-1.4.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.4.0.tar.gz",
+      "hashes": {
+        "sha256": "4436fca90177886e7747ce0a2dc293c3a49d4152baead4784c8da80861085eaf"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 47345,
+      "upload-time": "2016-05-26T21:24:47.935111Z",
+      "url": "https://files.pythonhosted.org/packages/11/c1/519ef060fb62a089b9fda346d471a382a456ad23ccbe49885812d6cf45a9/agate-1.4.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "ec60b1c0f45168ec077ff94aefdcadb3c0dfe0edb5d51f607eda558cf04e6006"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "ec60b1c0f45168ec077ff94aefdcadb3c0dfe0edb5d51f607eda558cf04e6006"
+      },
+      "filename": "agate-1.5.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "61cabd21345cca56543556d60268c8d7b54a5a47a7e342a07092ae6dccf5633d"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 125593,
+      "upload-time": "2016-11-16T21:33:55.163658Z",
+      "url": "https://files.pythonhosted.org/packages/0a/ac/e11affd564b07f75fb03e8779a16b2a6396f94e10d418559abd4384ffd71/agate-1.5.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.5.0.tar.gz",
+      "hashes": {
+        "sha256": "f876dfdfd202c5e1ad7faf254cce7bb982cd70d29578106b8c96a9dd0264a45c"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 50353,
+      "upload-time": "2016-11-16T21:33:52.678474Z",
+      "url": "https://files.pythonhosted.org/packages/e8/70/de5ff1fbd36b11aa2d4a02d0286720a3daf6c756ec04efa3559d509c5e75/agate-1.5.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "33a20d0fe13f2b9b685911c9ff05c1c7e64877783d7e4a98814a42c60b8b572f"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "33a20d0fe13f2b9b685911c9ff05c1c7e64877783d7e4a98814a42c60b8b572f"
+      },
+      "filename": "agate-1.5.1-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "59ddd4aa91bebdbad5b43eb4cd85702dceddcc8a87d08597c96473ee3526b0a5"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 125761,
+      "upload-time": "2016-12-23T20:50:06.745188Z",
+      "url": "https://files.pythonhosted.org/packages/7e/fc/182fb044fc684b9a3babc115476a627815c5d7235633c8aaeb86ae7ea010/agate-1.5.1-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.5.1.tar.gz",
+      "hashes": {
+        "sha256": "7f250aee66433804c2be7345538b52f863450a6e7366597cf734cf0fe18ea3af"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 50545,
+      "upload-time": "2016-12-23T20:50:04.898893Z",
+      "url": "https://files.pythonhosted.org/packages/fd/dc/2bc27df3432386e4fd70d086611e77cc1a7de53ac6f55d4e0b1841b764c3/agate-1.5.1.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "3ad3f756d6cba05b3f7613bf96bd9165c3769a9b682119504cf50829e1585d4d"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "3ad3f756d6cba05b3f7613bf96bd9165c3769a9b682119504cf50829e1585d4d"
+      },
+      "filename": "agate-1.5.2-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "150c2e244105ac3f1f7fd93ce9b165e2e74cc05a187217dede8c2c4b89e9a823"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 125820,
+      "upload-time": "2016-12-24T23:16:09.532302Z",
+      "url": "https://files.pythonhosted.org/packages/8b/4a/6ca1513e2db2ec2bc1a02bbdf9395b4cdef5b4b73efb0ddc857ec8d231a3/agate-1.5.2-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.5.2.tar.gz",
+      "hashes": {
+        "sha256": "31e53134155797bedb8d4dcd6afda9451ce2872d03e5c2a1970169fa79976697"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 50633,
+      "upload-time": "2016-12-24T23:16:07.779735Z",
+      "url": "https://files.pythonhosted.org/packages/7c/09/6abd97e14392c8b8355f9d39a0946a6bbb1e6c7a58824cb3e16916d67e02/agate-1.5.2.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "20c64276f1740335698b5e561f819c495ea22111fa9585d2834a9b6425089f8c"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "20c64276f1740335698b5e561f819c495ea22111fa9585d2834a9b6425089f8c"
+      },
+      "filename": "agate-1.5.3-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "6303492a8608e2d27ab416ed2a58a25ec37dd41284db864576463e3f33fc9ac4"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 126478,
+      "upload-time": "2016-12-26T15:05:02.593962Z",
+      "url": "https://files.pythonhosted.org/packages/f7/d4/99c6e2b7d3ebe0acf12f93fe75546d2023f81f62f7ffa28d5596ca15feb7/agate-1.5.3-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.5.3.tar.gz",
+      "hashes": {
+        "sha256": "9ac9c7a900a69728e4f437f5c524c47575f54d3563ee7d58c590ca7b13bc3e3f"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 51261,
+      "upload-time": "2016-12-26T15:04:59.681223Z",
+      "url": "https://files.pythonhosted.org/packages/47/df/2ec6b83643c572fae30ae8501fb4028281ba42fd78b7f2bc50324d38e610/agate-1.5.3.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "ef301f7faacfaf965c6acb8ade00c33ea049f0fd7ab19064e63a5ae4d0a5981d"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "ef301f7faacfaf965c6acb8ade00c33ea049f0fd7ab19064e63a5ae4d0a5981d"
+      },
+      "filename": "agate-1.5.4-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "28a2a0e2db1ac5a444a5fe700e3711a80948ca437d0ce1178e13e6a010e653ed"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 126465,
+      "upload-time": "2016-12-27T15:01:40.114390Z",
+      "url": "https://files.pythonhosted.org/packages/70/87/55c2c8705ace77dd94094d8e978684ddf29cd13e14114775e5294b01e98b/agate-1.5.4-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.5.4.tar.gz",
+      "hashes": {
+        "sha256": "0a9ad73bfbfa7335904877036384a80e75e49c5dffd8cd180a4998fccad74b03"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 51246,
+      "upload-time": "2016-12-27T15:01:38.007980Z",
+      "url": "https://files.pythonhosted.org/packages/a0/2c/534b99ac74afb13b19bfa1be2e68e11385d94ed471ceadcafd988bea09be/agate-1.5.4.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "d15323346c428b32485f992e616c33fe82e6427dc6e10cd13690f6415f370a91"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "d15323346c428b32485f992e616c33fe82e6427dc6e10cd13690f6415f370a91"
+      },
+      "filename": "agate-1.5.5-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "653c052168a1f4e9ca4816defdb4d304096b462aa906df8693a4bfcabd26e627"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 127082,
+      "upload-time": "2016-12-29T21:22:54.893591Z",
+      "url": "https://files.pythonhosted.org/packages/76/35/7f7a8b58be177491629c5a540b00ac11439163f45c8f43d21f5ee41d6d43/agate-1.5.5-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.5.5.tar.gz",
+      "hashes": {
+        "sha256": "2861da5ef44a442a2225f0945a8ddce67ba4653622bf55b22f793a7b7fd95265"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 51513,
+      "upload-time": "2016-12-29T21:22:52.305097Z",
+      "url": "https://files.pythonhosted.org/packages/97/0e/94c67e9a788c5bb5a83b8a46ac7b2a59ae627af93e4e3fb16dd4cfbae591/agate-1.5.5.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "09595522c7f7c2be8f352bf1524b6c78287d6a219b409de71abb596dd254419f"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "09595522c7f7c2be8f352bf1524b6c78287d6a219b409de71abb596dd254419f"
+      },
+      "filename": "agate-1.6.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "baeeddeeceedd789283470d5e3f1a1f564a98c2aa6005425186a3ad4d20c8c69"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 127407,
+      "upload-time": "2017-02-28T15:09:05.892354Z",
+      "url": "https://files.pythonhosted.org/packages/0a/1a/962c2c6d8ec8cf969e0ee30bea80ef3b2e11602fe1aeaf8119587b499418/agate-1.6.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.6.0.tar.gz",
+      "hashes": {
+        "sha256": "1547eb66a4caaea08cc247077e5b3740629be6724a047c94be0ecbbfa52ceb0a"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 51754,
+      "upload-time": "2017-02-28T15:09:00.589516Z",
+      "url": "https://files.pythonhosted.org/packages/72/37/48192f2cb18c7ebe413f7410783b64a6236d20a4461f5c36f5efcb793f89/agate-1.6.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "8114ccb22712580b1d4f01d631592aa714649ecb99e97b41ffeaf38c086422b7"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "8114ccb22712580b1d4f01d631592aa714649ecb99e97b41ffeaf38c086422b7"
+      },
+      "filename": "agate-1.6.1-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "48d6f80b35611c1ba25a642cbc5b90fcbdeeb2a54711c4a8d062ee2809334d1c"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 98469,
+      "upload-time": "2018-03-11T14:37:30.205567Z",
+      "url": "https://files.pythonhosted.org/packages/92/77/ef675f16486884ff7f77f3cb87aafa3429c6bb869d4d73ee23bf4675e384/agate-1.6.1-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.6.1.tar.gz",
+      "hashes": {
+        "sha256": "c93aaa500b439d71e4a5cf088d0006d2ce2c76f1950960c8843114e5f361dfd3"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 137280,
+      "upload-time": "2018-03-11T14:37:26.724157Z",
+      "url": "https://files.pythonhosted.org/packages/d4/1c/99fb34c81c68012c71e8d35a1f16a6b25952322e23c911c81327c8464be8/agate-1.6.1.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.6.2.tar.gz",
+      "hashes": {
+        "sha256": "8dbd4a57a2cffecfa2d8109ef5993ec4be12a8a7c81fbc0c8c79d96d4c4399ed"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 191216,
+      "upload-time": "2021-03-10T22:04:35.885536Z",
+      "url": "https://files.pythonhosted.org/packages/da/ec/73bf438732d6e38b380fab9e4dcdfa2b227a984e50c3b56cc9a128fbae9b/agate-1.6.2.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "b2573b2124de646d0f9b2779c81a82dc0566b434d72495a23d8b1d05cc12f8c6"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "b2573b2124de646d0f9b2779c81a82dc0566b434d72495a23d8b1d05cc12f8c6"
+      },
+      "filename": "agate-1.6.3-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "2d568fd68a8eb8b56c805a1299ba4bc30ca0434563be1bea309c9d1c1c8401f4"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 100545,
+      "upload-time": "2021-07-15T16:32:29.037560Z",
+      "url": "https://files.pythonhosted.org/packages/90/95/6e3fe3ddcc64e5f7de7fd7cd14c26a588aeaa7aea2d58a3bb61a150cebd9/agate-1.6.3-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.6.3.tar.gz",
+      "hashes": {
+        "sha256": "e0f2f813f7e12311a4cdccc97d6ba0a6781e9c1aa8eca0ab00d5931c0113a308"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 202102,
+      "upload-time": "2021-07-15T16:32:31.583562Z",
+      "url": "https://files.pythonhosted.org/packages/ae/0e/34231b11f1b80463f64c5be7d7279de5a5609a47c59c0e34ba7016e4e333/agate-1.6.3.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "30f760a64d6ac2b95db1266eafb40fa72c52bf79476e650bee224f1c7b2f8043"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "30f760a64d6ac2b95db1266eafb40fa72c52bf79476e650bee224f1c7b2f8043"
+      },
+      "filename": "agate-1.7.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "ad529c80fe6943906ab3d3bc59c12307e1181d35993e6055db59fa72dc79a6bd"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 97132,
+      "upload-time": "2023-01-03T18:13:14.886129Z",
+      "url": "https://files.pythonhosted.org/packages/a8/ea/69637dc96ded12c43d0b058548f75d707bf7dbb867e0aabe865dd432d29c/agate-1.7.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.7.0.tar.gz",
+      "hashes": {
+        "sha256": "a835a1069247b39b0c340e31eb56e1a95e79f679ad37512192118a5ea3336020"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 201944,
+      "upload-time": "2023-01-03T18:13:16.856127Z",
+      "url": "https://files.pythonhosted.org/packages/8f/2c/597c335fd567648745856ce7f1a60d9ee5ff8197e6bfb16c77273343b55b/agate-1.7.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "108d2dfc7312577a44e18cfa7a09245c2395b09d700cf0cfbca568c7c1b731f2"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "108d2dfc7312577a44e18cfa7a09245c2395b09d700cf0cfbca568c7c1b731f2"
+      },
+      "filename": "agate-1.7.1-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "23f9f412f74f97b72f82b1525ab235cc816bc8c8525d968a091576a0dbc54a5f"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 97149,
+      "upload-time": "2023-01-04T20:12:20.268703Z",
+      "url": "https://files.pythonhosted.org/packages/20/6e/bbebad0213fce2081902cf7565322b42a5a991c550857cfbb4741f69b8f6/agate-1.7.1-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.7.1.tar.gz",
+      "hashes": {
+        "sha256": "eadf46d980168b8922d5d396d6258eecd5e7dbef7e6f0c0b71e968545ea96389"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 202018,
+      "upload-time": "2023-01-04T20:12:21.769629Z",
+      "url": "https://files.pythonhosted.org/packages/07/12/c95569f05a85164e14ba13f974dca942a75b727bedab3925f2a29e175589/agate-1.7.1.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "a5f50b0d2fc455f56bf812f536bb988fab468585af30d63e6e12ba3c598f950a"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "a5f50b0d2fc455f56bf812f536bb988fab468585af30d63e6e12ba3c598f950a"
+      },
+      "filename": "agate-1.8.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "89bdd92369d335be7aec53a1c6517b89c9665ca3d68d05cb223ec3a0d8a09b0d"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 94768,
+      "upload-time": "2023-10-10T16:54:09.143209Z",
+      "url": "https://files.pythonhosted.org/packages/ed/50/ff4cb8e8f5f7eb75687e4703e79564fb3dde6bdefa01f9ac94e5f5b11156/agate-1.8.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.8.0.tar.gz",
+      "hashes": {
+        "sha256": "7018b1c720de4ee3915a9d8aaff975ec01f7b7ec303f7ce16c896af4311f78e1"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 201730,
+      "upload-time": "2023-10-10T16:54:10.712711Z",
+      "url": "https://files.pythonhosted.org/packages/2e/82/97f4d2d7e0927e7b0b6c148f9005b6201c5236b9dbeab1306c9a6c33c2cc/agate-1.8.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "6d402e816795cb926d25ef956712c1a94a03f348a6811b93269b8a85b43b237c"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "6d402e816795cb926d25ef956712c1a94a03f348a6811b93269b8a85b43b237c"
+      },
+      "filename": "agate-1.9.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "7421257311d6e6a41462949cd643fd0ac2a061ac1ee9d7df72b0f9d03452a19c"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 94998,
+      "upload-time": "2023-10-18T03:54:36.916749Z",
+      "url": "https://files.pythonhosted.org/packages/9d/37/d20ef28bcbfa56484a519a1314b1d821138d17d7296de5928f59bec408ca/agate-1.9.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.9.0.tar.gz",
+      "hashes": {
+        "sha256": "901b65382da982cfb52912246fb0ff3457d3ac02b94fafd4b10b0bff3ec358c5"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 202237,
+      "upload-time": "2023-10-18T03:54:38.721674Z",
+      "url": "https://files.pythonhosted.org/packages/61/e4/40decc7f8c851281e7196a89170a7560ae3bae7b2dd7c3f44fd75eac6ff5/agate-1.9.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "4f2e0503fd1ebd7fb56c571b0e18077f91a16f650c4f1a615f16cce3c22f6c8a"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "4f2e0503fd1ebd7fb56c571b0e18077f91a16f650c4f1a615f16cce3c22f6c8a"
+      },
+      "filename": "agate-1.9.1-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "1cf329510b3dde07c4ad1740b7587c9c679abc3dcd92bb1107eabc10c2e03c50"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 95085,
+      "upload-time": "2023-12-21T20:05:21.954929Z",
+      "url": "https://files.pythonhosted.org/packages/d1/53/89b197cb472a3175d73384761a3413fd58e6b65a794c1102d148b8de87bd/agate-1.9.1-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.9.1.tar.gz",
+      "hashes": {
+        "sha256": "bc60880c2ee59636a2a80cd8603d63f995be64526abf3cbba12f00767bcd5b3d"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 202303,
+      "upload-time": "2023-12-21T20:05:24.316137Z",
+      "url": "https://files.pythonhosted.org/packages/29/77/6f5df1c68bf056f5fdefc60ccc616303c6211e71cd6033c830c12735f605/agate-1.9.1.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "0ffcb57dc214b9b86d83e137f9ce51309cba1643312e550b33a516434169b3eb"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "0ffcb57dc214b9b86d83e137f9ce51309cba1643312e550b33a516434169b3eb"
+      },
+      "filename": "agate-1.10.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "c793dacb2972f3604f5ee37fd6550d38d9a7bdd7d4c931a6cab7a27d6c08c6a6"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 95365,
+      "upload-time": "2024-04-27T23:16:15.284324Z",
+      "url": "https://files.pythonhosted.org/packages/c6/94/21d337bd6a74fc313c88f3514382f35142f4b15af60eb4d295b6a22a80ce/agate-1.10.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.10.0.tar.gz",
+      "hashes": {
+        "sha256": "20a07723bf05e96c69ff49e7513662d475dad356721383f659a8c8314acfdbec"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 202845,
+      "upload-time": "2024-04-27T23:16:16.696666Z",
+      "url": "https://files.pythonhosted.org/packages/16/4c/61f0eb7c1e9cd4e95d1748fb9983bb74035d89a0fc84ecc8e93618e904b3/agate-1.10.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "3a43e1a646a34c5a25b1a0d934bfd318b64fc43ce7a1b07325a6f23c0ea09b1b"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "3a43e1a646a34c5a25b1a0d934bfd318b64fc43ce7a1b07325a6f23c0ea09b1b"
+      },
+      "filename": "agate-1.10.1-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "0fadef1f8cd4013e401cc7651ea352a8b5aebbd7bee448db83b19f8b18e6f762"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 95366,
+      "upload-time": "2024-04-28T05:26:48.687181Z",
+      "url": "https://files.pythonhosted.org/packages/4d/d2/feb9ea73bcfada176f59b7493a245fc658156ccebe069103bacdcad2854d/agate-1.10.1-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.10.1.tar.gz",
+      "hashes": {
+        "sha256": "064f89ae73b645951a4104028db0d11f9abf0523052bdb7c35ac9ed335a4b087"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 203139,
+      "upload-time": "2024-04-28T05:26:50.721156Z",
+      "url": "https://files.pythonhosted.org/packages/6c/03/2c7148f63fff788a9b5239c28c1a5a10d162e56879bc81ed557ca2110cd3/agate-1.10.1.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "94973953f5a1ae96c8385bc66055cce5460893f31dd8f72e955b3481241f350b"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "94973953f5a1ae96c8385bc66055cce5460893f31dd8f72e955b3481241f350b"
+      },
+      "filename": "agate-1.10.2-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "d5f9ce1c7635040888f8c96b04246d728350b984cc57eb8cbb6630b3909a3e5b"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 95709,
+      "upload-time": "2024-04-28T20:24:49.393873Z",
+      "url": "https://files.pythonhosted.org/packages/c4/39/efddfb337a262ac7d129b982b65ff9b706ed4e6cfa3d131f286cd8297577/agate-1.10.2-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.10.2.tar.gz",
+      "hashes": {
+        "sha256": "336b1e3e98a1127afbac6e26cc06f369b43ab00b7c63079ab06f0971dc389f68"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 203542,
+      "upload-time": "2024-04-28T20:24:51.335175Z",
+      "url": "https://files.pythonhosted.org/packages/07/22/d56bcab24af5c34d8c7e8122cb94507aa58ad5e1d54e0da584c323a58c26/agate-1.10.2.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "adb3ce6f028ca246fd7a6641e30b9d799170dfcae11a65c0668664f8bbf19108"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "adb3ce6f028ca246fd7a6641e30b9d799170dfcae11a65c0668664f8bbf19108"
+      },
+      "filename": "agate-1.11.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "1466df58f95b85df834ac96ae8bfd0eb65e0e7974c7bca41d1316389001b9536"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 95759,
+      "upload-time": "2024-05-27T17:23:19.184097Z",
+      "url": "https://files.pythonhosted.org/packages/6a/15/9d01ae75ddab10a2aa3a353c8d284c82222f7b4ee5b05cc66e3ba7f13fab/agate-1.11.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.11.0.tar.gz",
+      "hashes": {
+        "sha256": "57d9655bdebbfd61a71768202e1fb4847d6bba51f1800582da5c64c958952f4b"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 203764,
+      "upload-time": "2024-05-27T17:23:20.584777Z",
+      "url": "https://files.pythonhosted.org/packages/44/b5/a0187fa539241bb39bdf635c39e5395de35c5939de721d3d931e2ca4554e/agate-1.11.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "1c2e8dcbc741a6f6950fe79d0ec51fbad3df59dc127a18798c6dc25b1d02887f"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "1c2e8dcbc741a6f6950fe79d0ec51fbad3df59dc127a18798c6dc25b1d02887f"
+      },
+      "filename": "agate-1.12.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "7cef2a88d2af8ec2eda2ae07c1c92a33ca1fd7f0fe564de7c61e427b14f39540"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 95838,
+      "upload-time": "2024-07-30T00:58:25.502236Z",
+      "url": "https://files.pythonhosted.org/packages/d1/8a/b17cdd489d42caf65ee97a0de9be8ad9886bbd0f3d7d291b30935a9437be/agate-1.12.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.12.0.tar.gz",
+      "hashes": {
+        "sha256": "7989841ac7de69e57389485c0b7cdab2e1a54c7480c629a76912bb7c331d991b"
+      },
+      "provenance": null,
+      "requires-python": null,
+      "size": 203989,
+      "upload-time": "2024-07-30T00:58:27.352051Z",
+      "url": "https://files.pythonhosted.org/packages/62/b5/7ea4dc82949dd40fb7277ce0fe9b57a44a1da28b1411327dc24ec2fffcff/agate-1.12.0.tar.gz",
+      "yanked": false
+    },
+    {
+      "core-metadata": {
+        "sha256": "4b1a71dfee756c4dadba1eda6582656af4d76ab9fd2a6da138d01fbe2c543f2e"
+      },
+      "data-dist-info-metadata": {
+        "sha256": "4b1a71dfee756c4dadba1eda6582656af4d76ab9fd2a6da138d01fbe2c543f2e"
+      },
+      "filename": "agate-1.13.0-py2.py3-none-any.whl",
+      "hashes": {
+        "sha256": "0726e3883e157da2b6bb58cc40bd9b810a5df4a11dea3bcd3de0f422a3819294"
+      },
+      "provenance": "https://pypi.org/integrity/agate/1.13.0/agate-1.13.0-py2.py3-none-any.whl/provenance",
+      "requires-python": null,
+      "size": 95920,
+      "upload-time": "2025-01-29T06:24:06.501066Z",
+      "url": "https://files.pythonhosted.org/packages/47/d4/5b4c8912bfde73f23ac5cf99915193c53133709283bbfdb151ab23881c48/agate-1.13.0-py2.py3-none-any.whl",
+      "yanked": false
+    },
+    {
+      "core-metadata": false,
+      "data-dist-info-metadata": false,
+      "filename": "agate-1.13.0.tar.gz",
+      "hashes": {
+        "sha256": "24bc3d3cbd165aa3ab0ef9e798dd4c53ad703012d450fe89b9c26b239505c445"
+      },
+      "provenance": "https://pypi.org/integrity/agate/1.13.0/agate-1.13.0.tar.gz/provenance",
+      "requires-python": null,
+      "size": 204156,
+      "upload-time": "2025-01-29T06:24:08.817210Z",
+      "url": "https://files.pythonhosted.org/packages/38/a5/3773a25b4b4867efbe69dd34f374020e1c66415ac96afc572ac7aa47d90c/agate-1.13.0.tar.gz",
+      "yanked": false
+    }
+  ],
+  "meta": {
+    "_last-serial": 27180853,
+    "api-version": "1.4"
+  },
+  "name": "agate",
+  "project-status": {
+    "status": "active"
+  },
+  "versions": [
+    "0.5.0",
+    "0.6.0",
+    "0.7.0",
+    "0.8.0",
+    "0.9.0",
+    "0.10.0",
+    "0.11.0",
+    "1.0.0",
+    "1.0.1",
+    "1.1.0",
+    "1.2.0",
+    "1.2.1",
+    "1.2.2",
+    "1.3.0",
+    "1.3.1",
+    "1.4.0",
+    "1.5.0",
+    "1.5.1",
+    "1.5.2",
+    "1.5.3",
+    "1.5.4",
+    "1.5.5",
+    "1.6.0",
+    "1.6.1",
+    "1.6.2",
+    "1.6.3",
+    "1.7.0",
+    "1.7.1",
+    "1.8.0",
+    "1.9.0",
+    "1.9.1",
+    "1.10.0",
+    "1.10.1",
+    "1.10.2",
+    "1.11.0",
+    "1.12.0",
+    "1.13.0"
+  ]
+}
+

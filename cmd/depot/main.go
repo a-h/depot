@@ -15,6 +15,8 @@ import (
 	"github.com/a-h/depot/nix/push"
 	npmcmd "github.com/a-h/depot/npm/cmd"
 	npmdb "github.com/a-h/depot/npm/db"
+	pythoncmd "github.com/a-h/depot/python/cmd"
+	pythondb "github.com/a-h/depot/python/db"
 
 	"github.com/a-h/depot/routes"
 	"github.com/a-h/depot/store"
@@ -24,11 +26,12 @@ import (
 
 type CLI struct {
 	globals.Globals
-	Version VersionCmd    `cmd:"" help:"Show version information"`
-	Serve   ServeCmd      `cmd:"" help:"Start the depot server"`
-	Proxy   ProxyCmd      `cmd:"" help:"Proxy requests to a remote depot with authentication"`
-	Nix     nixcmd.NixCmd `cmd:"" help:"Nix package management commands"`
-	NPM     npmcmd.NPMCmd `cmd:"" help:"NPM package management commands"`
+	Version VersionCmd          `cmd:"" help:"Show version information"`
+	Serve   ServeCmd            `cmd:"" help:"Start the depot server"`
+	Proxy   ProxyCmd            `cmd:"" help:"Proxy requests to a remote depot with authentication"`
+	Nix     nixcmd.NixCmd       `cmd:"" help:"Nix package management commands"`
+	NPM     npmcmd.NPMCmd       `cmd:"" help:"NPM package management commands"`
+	Python  pythoncmd.PythonCmd `cmd:"" help:"Python package management commands"`
 }
 
 var Version = "dev"
@@ -105,7 +108,7 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 	// Create HTTP server.
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: routes.New(log, nixdb.New(store), npmdb.New(store), cmd.StorePath, authConfig, privateKey),
+		Handler: routes.New(log, nixdb.New(store), npmdb.New(store), pythondb.New(store), cmd.StorePath, authConfig, privateKey),
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("storePath", cmd.StorePath))
 	return s.ListenAndServe()
@@ -133,7 +136,7 @@ func main() {
 
 	ctx := kong.Parse(&cli,
 		kong.Name("depot"),
-		kong.Description("Serve Nix and NPM packages"),
+		kong.Description("Serve Nix, NPM, and Python packages"),
 		kong.UsageOnError(),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
