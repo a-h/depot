@@ -83,6 +83,57 @@ depot npm push http://localhost:8080
 npm install --registry http://localhost:8080 express
 ```
 
+## Python usage
+
+### 1. Download packages from PyPI
+
+```bash
+# Download specific packages.
+depot python save "requests>=2.0.0" "flask==2.3.0"
+
+# Download from a requirements.txt file.
+depot python save --stdin < requirements.txt
+
+# Or pipe a list of packages.
+echo "requests>=2.0.0" | depot python save --stdin
+```
+
+This will create a `.depot-storage/python` directory containing the Python package files and metadata.
+
+The save command supports standard Python package specifiers:
+
+- `package==1.0.0` - Exact version
+- `package>=1.0.0` - Minimum version
+- `package>=1.0.0,<2.0.0` - Version range
+- `package~=1.4.2` - Compatible release
+
+### 2. Push the Python packages to depot
+
+```bash
+depot python push http://localhost:8080
+```
+
+### 3. Use the packages with pip
+
+```bash
+# Install from your depot
+pip install --index-url http://localhost:8080/python/simple/ requests
+
+# Use as an additional package index
+pip install --extra-index-url http://localhost:8080/python/simple/ requests
+
+# In requirements.txt, use:
+# --index-url http://localhost:8080/python/simple/
+# requests>=2.0.0
+```
+
+Or configure pip permanently in `pip.conf` or `~/.pip/pip.conf`:
+
+```ini
+[global]
+index-url = http://localhost:8080/python/simple/
+```
+
 ## Authentication
 
 The server supports SSH key-based authentication using JWT tokens. Authentication is configured via a text file containing SSH public keys with permission levels.
