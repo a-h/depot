@@ -17,8 +17,10 @@ Storage for Nix and NPM packages.
 ### 1. Generate a signing key (for narinfo signatures)
 
 ```bash
-nix key generate-secret --key-name mycache-1 > signing.key
+nix key generate-secret --key-name local-depot-1 > signing.key
 ```
+
+The `--key-name` can be any identifier you choose (e.g., `mycompany-cache`, `home-cache-1`). The `-1` suffix is a convention for key versioning. Use the same key name consistently when configuring clients to trust your cache.
 
 ### 2. Start the server (no authentication)
 
@@ -26,7 +28,42 @@ nix key generate-secret --key-name mycache-1 > signing.key
 depot serve --private-key signing.key --verbose
 ```
 
-### 3. Start the server with SSH authentication
+### 3. Configure Nix to trust the cache
+
+Extract the public key from your signing key:
+
+```bash
+# Convert the private key to public key
+nix key convert-secret-to-public < signing.key
+# Output: local-depot-1:public-key-base64...
+```
+
+Add the public key to your Nix configuration to trust signatures from your cache. Replace `local-depot-1:public-key-base64...` with the actual output from the command above:
+
+```bash
+# Option 1: Add to ~/.config/nix/nix.conf
+echo "trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= local-depot-1:public-key-base64..." >> ~/.config/nix/nix.conf
+
+# Option 2: Add to /etc/nix/nix.conf (system-wide, requires sudo)
+sudo sh -c 'echo "trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= local-depot-1:public-key-base64..." >> /etc/nix/nix.conf'
+
+# Option 3: Use flags when running nix commands
+nix build --option trusted-public-keys "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= local-depot-1:public-key-base64..." --option substituters "http://localhost:8080 https://cache.nixos.org" nixpkgs#sl
+```
+
+Add your depot as a substituter:
+
+```bash
+# Add to nix.conf (depot first, then official cache as fallback)
+echo "substituters = http://localhost:8080 https://cache.nixos.org" >> ~/.config/nix/nix.conf
+
+# Or use the --option flag
+nix build --option substituters "http://localhost:8080 https://cache.nixos.org" nixpkgs#sl
+```
+
+Note: The order matters - Nix checks substituters sequentially. List your depot first for faster lookups, with the official cache as a fallback.
+
+### 4. Start the server with SSH authentication
 
 Create an auth file with SSH public keys:
 
@@ -42,7 +79,7 @@ Then start the server:
 depot serve --auth-file auth.keys --private-key signing.key --verbose
 ```
 
-### 4. Push to a remote cache
+### 5. Push to a remote cache
 
 ```bash
 # Push a flake reference
