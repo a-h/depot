@@ -116,10 +116,10 @@ depot python push http://localhost:8080
 ### 3. Use the packages with pip
 
 ```bash
-# Install from your depot
+# Install from your depot.
 pip install --index-url http://localhost:8080/python/simple/ requests
 
-# Use as an additional package index
+# Use as an additional package index.
 pip install --extra-index-url http://localhost:8080/python/simple/ requests
 
 # In requirements.txt, use:
