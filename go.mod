@@ -8,6 +8,7 @@ require (
 	github.com/alecthomas/kong v1.8.1
 	github.com/aquasecurity/go-pep440-version v0.0.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/google/go-cmp v0.6.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/nix-community/go-nix v0.0.0-20250101154619-4bdde671e0a1
 	github.com/rqlite/rqlite-go-http v0.0.0-20250303134341-c2f34fa063d5

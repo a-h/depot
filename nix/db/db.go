@@ -18,7 +18,7 @@ type DB struct {
 }
 
 type narInfoRecord struct {
-	NarInfo string `kv:"ni"`
+	NarInfo string
 }
 
 // GetNarInfo retrieves a narinfo from the database. The narinfoPath is the URL path, e.g. /cache-name/16hvpw4b3r05girazh4rnwbw0jgjkb4l.narinfo

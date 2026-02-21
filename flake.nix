@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     gitignore = {
       url = "github:hercules-ci/gitignore.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -44,7 +44,7 @@
         pname = name;
         version = v;
         src = gitignore.lib.gitignoreSource ./.;
-        vendorHash = "sha256-ow37GCJUkIDeBKAha8qfGq/zTvyIgzGWkD0YhE8XwCQ=";
+        vendorHash = "sha256-XpSKNrSBAeh/FefLxNYDP0xDr+8e3J2wuJQqXef9DYY=";
         subPackages = [ "cmd/${name}" ];
         ldflags = [
           "-s"

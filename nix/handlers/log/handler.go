@@ -24,9 +24,9 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	stderr := bytes.NewBuffer(nil)
 	if err := nixLog(r.Context(), w, stderr, r.PathValue("storepath")); err != nil {
 		h.log.Error("failed to get nix log", slog.Any("error", err), slog.String("stderr", stderr.String()))
+		http.Error(w, "failed to get nix log", http.StatusInternalServerError)
 		return
 	}
-	return
 }
 
 func nixLog(ctx context.Context, stdout, stderr io.Writer, storePath string) (err error) {
