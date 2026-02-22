@@ -8,20 +8,26 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/a-h/depot/downloadcounter"
+	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/storage"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
 )
 
-func New(log *slog.Logger, storage storage.Storage) Handler {
+func New(log *slog.Logger, storage storage.Storage, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) Handler {
 	return Handler{
-		log:     log,
-		storage: storage,
+		log:             log,
+		storage:         storage,
+		downloadCounter: downloadCounter,
+		metrics:         metrics,
 	}
 }
 
 type Handler struct {
-	log     *slog.Logger
-	storage storage.Storage
+	log             *slog.Logger
+	storage         storage.Storage
+	downloadCounter chan<- downloadcounter.DownloadEvent
+	metrics         metrics.Metrics
 }
 
 // getFileExtensionAndContentType extracts the file extension from the URL path
@@ -102,11 +108,14 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = io.Copy(w, file)
+	bytesDownloaded, err := io.Copy(w, file)
 	if err != nil {
 		h.log.Error("failed to serve NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
 		return
 	}
+
+	h.downloadCounter <- downloadcounter.DownloadEvent{Group: "nix", Name: hashPart}
+	h.metrics.IncrementDownloadMetrics(r.Context(), "nix", bytesDownloaded)
 }
 
 func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
@@ -135,12 +144,13 @@ func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	_, err = io.Copy(file, r.Body)
+	bytesWritten, err := io.Copy(file, r.Body)
 	if err != nil {
 		h.log.Error("failed to write NAR file", slog.String("hashPart", hashPart), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	h.metrics.IncrementUploadMetrics(r.Context(), "nix", bytesWritten)
 
 	w.WriteHeader(http.StatusCreated)
 }

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/a-h/depot/downloadcounter"
+	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/nix/db"
 	loghandler "github.com/a-h/depot/nix/handlers/log"
 	narhandler "github.com/a-h/depot/nix/handlers/nar"
@@ -16,10 +18,10 @@ import (
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
 
-func New(log *slog.Logger, db *db.DB, storage storage.Storage, privateKey *signature.SecretKey) http.Handler {
+func New(log *slog.Logger, db *db.DB, storage storage.Storage, privateKey *signature.SecretKey, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) http.Handler {
 	nci := nixcacheinfo.New(log, privateKey)
 	nih := narinfohandler.New(log, db, privateKey)
-	nh := narhandler.New(log, storage)
+	nh := narhandler.New(log, storage, downloadCounter, metrics)
 	lh := loghandler.New(log)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -37,8 +39,7 @@ func New(log *slog.Logger, db *db.DB, storage storage.Storage, privateKey *signa
 			nh.ServeHTTP(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/log/") {
-			storepath := strings.TrimPrefix(r.URL.Path, "/log/")
+		if storepath, ok := strings.CutPrefix(r.URL.Path, "/log/"); ok {
 			storepath = filepath.Clean("/" + storepath)
 			r.SetPathValue("storepath", storepath)
 			lh.ServeHTTP(w, r)
@@ -50,8 +51,8 @@ func New(log *slog.Logger, db *db.DB, storage storage.Storage, privateKey *signa
 
 func getHashPart(urlPath string) string {
 	file := path.Base(urlPath)
-	if dotIndex := strings.Index(file, "."); dotIndex != -1 {
-		return file[:dotIndex]
+	if before, _, ok := strings.Cut(file, "."); ok {
+		return before
 	}
 	return file
 }

@@ -9,25 +9,31 @@ import (
 	"path"
 	"strings"
 
+	"github.com/a-h/depot/downloadcounter"
+	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/python/db"
 	"github.com/a-h/depot/python/models"
 	"github.com/a-h/depot/storage"
 )
 
-func New(log *slog.Logger, db *db.DB, storage storage.Storage, baseURL string) Handler {
+func New(log *slog.Logger, db *db.DB, storage storage.Storage, baseURL string, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) Handler {
 	return Handler{
-		log:     log,
-		db:      db,
-		storage: storage,
-		baseURL: strings.TrimSuffix(baseURL, "/"),
+		log:             log,
+		db:              db,
+		storage:         storage,
+		baseURL:         strings.TrimSuffix(baseURL, "/"),
+		downloadCounter: downloadCounter,
+		metrics:         metrics,
 	}
 }
 
 type Handler struct {
-	log     *slog.Logger
-	db      *db.DB
-	storage storage.Storage
-	baseURL string
+	log             *slog.Logger
+	db              *db.DB
+	storage         storage.Storage
+	baseURL         string
+	downloadCounter chan<- downloadcounter.DownloadEvent
+	metrics         metrics.Metrics
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +64,7 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 
 	pathParts := strings.Split(pkg, "/")
 	if len(pathParts) > 1 {
-		h.getPackageFile(w, pathParts[0], pathParts[1])
+		h.getPackageFile(w, r, pathParts[0], pathParts[1])
 		return
 	}
 
@@ -169,7 +175,7 @@ func (h Handler) getPackageHTML(w http.ResponseWriter, index models.SimplePackag
 	w.Write([]byte("</body>\n</html>\n"))
 }
 
-func (h Handler) getPackageFile(w http.ResponseWriter, pkg string, fileName string) {
+func (h Handler) getPackageFile(w http.ResponseWriter, r *http.Request, pkg string, fileName string) {
 	path := path.Join(pkg, fileName)
 	h.log.Debug("Getting package file", slog.String("path", path), slog.String("pkg", pkg), slog.String("filename", fileName))
 	reader, exists, err := h.storage.Get(path)
@@ -184,11 +190,14 @@ func (h Handler) getPackageFile(w http.ResponseWriter, pkg string, fileName stri
 	}
 	defer reader.Close()
 	w.Header().Set("Content-Type", "application/octet-stream")
-	if _, err := io.Copy(w, reader); err != nil {
+	bytesDownloaded, err := io.Copy(w, reader)
+	if err != nil {
 		h.log.Error("failed to write file to response", slog.String("path", path), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	h.downloadCounter <- downloadcounter.DownloadEvent{Group: "python", Name: path}
+	h.metrics.IncrementDownloadMetrics(r.Context(), "python", bytesDownloaded)
 }
 
 func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
@@ -227,11 +236,13 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 	}
 	defer writer.Close()
 
-	if _, err := io.Copy(writer, r.Body); err != nil {
+	bytesWritten, err := io.Copy(writer, r.Body)
+	if err != nil {
 		h.log.Error("failed to write file", slog.String("path", path), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	h.metrics.IncrementUploadMetrics(r.Context(), "python", bytesWritten)
 
 	h.log.Debug("stored file", slog.String("path", path))
 	w.WriteHeader(http.StatusCreated)

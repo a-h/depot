@@ -7,20 +7,26 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/a-h/depot/downloadcounter"
+	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/storage"
 )
 
-func New(log *slog.Logger, storage storage.Storage) Handler {
+func New(log *slog.Logger, storage storage.Storage, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) Handler {
 	return Handler{
-		log:     log,
-		storage: storage,
+		log:             log,
+		storage:         storage,
+		downloadCounter: downloadCounter,
+		metrics:         metrics,
 	}
 }
 
 // Handler serves NPM package tarballs.
 type Handler struct {
-	log     *slog.Logger
-	storage storage.Storage
+	log             *slog.Logger
+	storage         storage.Storage
+	downloadCounter chan<- downloadcounter.DownloadEvent
+	metrics         metrics.Metrics
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -62,10 +68,14 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 
 	// Copy file content to response.
-	if _, err := io.Copy(w, file); err != nil {
+	bytesDownloaded, err := io.Copy(w, file)
+	if err != nil {
 		h.log.Error("failed to serve tarball", slog.String("path", requestPath), slog.Any("error", err))
 		return
 	}
+
+	h.downloadCounter <- downloadcounter.DownloadEvent{Group: "npm", Name: requestPath}
+	h.metrics.IncrementDownloadMetrics(r.Context(), "npm", bytesDownloaded)
 }
 
 func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
@@ -90,11 +100,13 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 	defer f.Close()
 
 	// Copy request body to storage.
-	if _, err = io.Copy(f, r.Body); err != nil {
+	bytesWritten, err := io.Copy(f, r.Body)
+	if err != nil {
 		h.log.Error("failed to save tarball", slog.String("path", path), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	h.metrics.IncrementUploadMetrics(r.Context(), "npm", bytesWritten)
 
 	h.log.Debug("tarball uploaded successfully", slog.String("path", path))
 	w.WriteHeader(http.StatusOK)

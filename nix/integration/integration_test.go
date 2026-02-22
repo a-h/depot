@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/a-h/depot/downloadcounter"
+	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/nix/db"
 	"github.com/a-h/depot/nix/handlers"
 	"github.com/a-h/depot/storage"
@@ -138,7 +140,7 @@ func (ts *testServer) start(t *testing.T) {
 	// Create HTTP server.
 	ts.server = &http.Server{
 		Addr:    ":8080",
-		Handler: handlers.New(log, db.New(store), storage, &privateKey),
+		Handler: handlers.New(log, db.New(store), storage, &privateKey, make(chan downloadcounter.DownloadEvent, 1), metrics.Metrics{}),
 	}
 
 	// Start server in goroutine.

@@ -49,7 +49,7 @@ func (m *Counter) Get(ctx context.Context, group, name string) (count Counts, er
 		return nil, err
 	}
 
-	counts := make([]Count, len(rows))
+	counts := make(Counts, len(rows))
 	for i, row := range rows {
 		parts := strings.Split(row.Key, "/")
 		if len(parts) != 5 {

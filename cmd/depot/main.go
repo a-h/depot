@@ -10,6 +10,8 @@ import (
 
 	"github.com/a-h/depot/auth"
 	"github.com/a-h/depot/cmd/globals"
+	"github.com/a-h/depot/downloadcounter"
+	depotmetrics "github.com/a-h/depot/metrics"
 	nixcmd "github.com/a-h/depot/nix/cmd"
 	nixdb "github.com/a-h/depot/nix/db"
 	"github.com/a-h/depot/nix/push"
@@ -44,12 +46,13 @@ func (cmd *VersionCmd) Run(globals *globals.Globals) error {
 }
 
 type ServeCmd struct {
-	DatabaseType string `help:"Choice of database (sqlite, rqlite or postgres)" default:"sqlite" enum:"sqlite,rqlite,postgres" env:"DEPOT_DATABASE_TYPE"`
-	DatabaseURL  string `help:"Database connection URL" default:"" env:"DEPOT_DATABASE_URL"`
-	ListenAddr   string `help:"Address to listen on" default:":8080" env:"DEPOT_LISTEN_ADDR"`
-	StorePath    string `help:"Path to file store" default:"" env:"DEPOT_STORE_PATH"`
-	AuthFile     string `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
-	PrivateKey   string `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
+	DatabaseType      string `help:"Choice of database (sqlite, rqlite or postgres)" default:"sqlite" enum:"sqlite,rqlite,postgres" env:"DEPOT_DATABASE_TYPE"`
+	DatabaseURL       string `help:"Database connection URL" default:"" env:"DEPOT_DATABASE_URL"`
+	ListenAddr        string `help:"Address to listen on" default:":8080" env:"DEPOT_LISTEN_ADDR"`
+	MetricsListenAddr string `help:"Address for metrics endpoint" default:":9090" env:"DEPOT_METRICS_LISTEN_ADDR"`
+	StorePath         string `help:"Path to file store" default:"" env:"DEPOT_STORE_PATH"`
+	AuthFile          string `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
+	PrivateKey        string `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
 }
 
 func (cmd *ServeCmd) Run(globals *globals.Globals) error {
@@ -106,12 +109,30 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 	}
 
 	// Create HTTP server.
+	metrics, err := depotmetrics.New()
+	if err != nil {
+		return fmt.Errorf("failed to initialize metrics: %w", err)
+	}
+
+	counter, counterShutdown := downloadcounter.NewBufferedCounter(context.Background(), log, store, metrics, 2048)
+
+	go func() {
+		if err := depotmetrics.ListenAndServe(cmd.MetricsListenAddr); err != nil {
+			log.Error("metrics server exited", slog.String("addr", cmd.MetricsListenAddr), slog.String("error", err.Error()))
+		}
+	}()
+
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: routes.New(log, nixdb.New(store), npmdb.New(store), pythondb.New(store), cmd.StorePath, authConfig, privateKey),
+		Handler: routes.New(log, nixdb.New(store), npmdb.New(store), pythondb.New(store), cmd.StorePath, authConfig, privateKey, counter, metrics),
 	}
-	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("storePath", cmd.StorePath))
-	return s.ListenAndServe()
+	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("metricsAddr", cmd.MetricsListenAddr), slog.String("storePath", cmd.StorePath))
+	err = s.ListenAndServe()
+	log.Debug("server exited, shutting down download counter", slog.String("error", err.Error()))
+	log.Debug("waiting for download counter to finish processing events")
+	counterShutdown()
+	log.Info("server shutdown complete")
+	return err
 }
 
 type ProxyCmd struct {
