@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -146,6 +147,18 @@ type Derivation struct {
 	InputSrcs []string       `json:"inputSrcs"`
 }
 
+func normalizeNixStorePath(p string) (string, bool) {
+	if strings.HasPrefix(p, "/nix/store/") {
+		return p, true
+	}
+	// Reject empty strings and absolute paths (which indicate non-store paths).
+	if p == "" || filepath.IsAbs(p) {
+		return "", false
+	}
+	// v3 format: basename only (hash-name style).
+	return filepath.Join("/nix/store", p), true
+}
+
 func getInputDrvs(input []byte) (drvs []string, srcs []string, err error) {
 	var m map[string]Derivation
 	err = json.Unmarshal(input, &m)
@@ -161,10 +174,17 @@ func getInputDrvs(input []byte) (drvs []string, srcs []string, err error) {
 	}
 	drv := m[drvKeys[0]]
 	for k := range drv.InputDrvs {
-		drvs = append(drvs, k)
+		if path, ok := normalizeNixStorePath(k); ok {
+			drvs = append(drvs, path)
+		}
+	}
+	for _, src := range drv.InputSrcs {
+		if path, ok := normalizeNixStorePath(src); ok {
+			srcs = append(srcs, path)
+		}
 	}
 	slices.Sort(drvs)
-	return drvs, drv.InputSrcs, nil
+	return drvs, srcs, nil
 }
 
 // RealiseStorePaths realises store paths and returns their output paths.
