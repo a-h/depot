@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/a-h/depot/downloadcounter"
 	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/npm/db"
 	"github.com/a-h/depot/npm/handlers/metadata"
@@ -13,9 +12,9 @@ import (
 	"github.com/a-h/depot/storage"
 )
 
-func New(log *slog.Logger, db *db.DB, storage storage.Storage, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) http.Handler {
+func New(log *slog.Logger, db *db.DB, storage storage.Storage, metrics metrics.Metrics) http.Handler {
 	mh := metadata.New(log, db)
-	th := tarball.New(log, storage, downloadCounter, metrics)
+	th := tarball.New(log, storage, metrics)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/")

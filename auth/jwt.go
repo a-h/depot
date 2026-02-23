@@ -4,7 +4,10 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -42,9 +45,29 @@ func CreateJWT(privateKey crypto.Signer, publicKey ssh.PublicKey) (string, error
 		return "", fmt.Errorf("unsupported private key type")
 	}
 
-	// Create and sign the token.
+	// Create the token.
 	token := jwt.NewWithClaims(signingMethod, claims)
-	return token.SignedString(privateKey)
+
+	// Get the signing string (header.payload).
+	signingString, err := token.SigningString()
+	if err != nil {
+		return "", fmt.Errorf("failed to get signing string: %w", err)
+	}
+
+	// Hash the signing string with SHA256.
+	hash := sha256.Sum256([]byte(signingString))
+
+	// Sign the hash using the crypto.Signer.
+	signature, err := privateKey.Sign(nil, hash[:], crypto.SHA256)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+
+	// Encode the signature as base64url.
+	encodedSignature := base64.RawURLEncoding.EncodeToString(signature)
+
+	// Construct the final token: header.payload.signature
+	return strings.Join([]string{signingString, encodedSignature}, "."), nil
 }
 
 // VerifyJWT verifies a JWT token and returns the key fingerprint if valid.

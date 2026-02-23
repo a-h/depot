@@ -8,26 +8,23 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-h/depot/downloadcounter"
 	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/storage"
 	"github.com/nix-community/go-nix/pkg/nixbase32"
 )
 
-func New(log *slog.Logger, storage storage.Storage, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) Handler {
+func New(log *slog.Logger, storage storage.Storage, metrics metrics.Metrics) Handler {
 	return Handler{
-		log:             log,
-		storage:         storage,
-		downloadCounter: downloadCounter,
-		metrics:         metrics,
+		log:     log,
+		storage: storage,
+		metrics: metrics,
 	}
 }
 
 type Handler struct {
-	log             *slog.Logger
-	storage         storage.Storage
-	downloadCounter chan<- downloadcounter.DownloadEvent
-	metrics         metrics.Metrics
+	log     *slog.Logger
+	storage storage.Storage
+	metrics metrics.Metrics
 }
 
 // getFileExtensionAndContentType extracts the file extension from the URL path
@@ -79,7 +76,7 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 	fileExt, contentType := getFileExtensionAndContentType(r.URL.Path)
 	narPath := filepath.Join("nar", hashPart+fileExt)
 
-	size, exists, err := h.storage.Stat(narPath)
+	size, exists, err := h.storage.Stat(r.Context(), narPath)
 	if err != nil {
 		h.log.Error("failed to stat NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -91,7 +88,7 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, exists, err := h.storage.Get(narPath)
+	file, exists, err := h.storage.Get(r.Context(), narPath)
 	if err != nil || !exists {
 		h.log.Error("failed to open NAR file", slog.String("narPath", narPath), slog.String("hashPart", hashPart), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -114,7 +111,6 @@ func (h *Handler) GetHead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.downloadCounter <- downloadcounter.DownloadEvent{Group: "nix", Name: hashPart}
 	h.metrics.IncrementDownloadMetrics(r.Context(), "nix", bytesDownloaded)
 }
 
@@ -136,7 +132,7 @@ func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
 	fileExt, _ := getFileExtensionAndContentType(r.URL.Path)
 
 	narPath := filepath.Join("nar", hashPart+fileExt)
-	file, err := h.storage.Put(narPath)
+	file, err := h.storage.Put(r.Context(), narPath)
 	if err != nil {
 		h.log.Error("failed to create NAR file", slog.String("hashPart", hashPart), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)

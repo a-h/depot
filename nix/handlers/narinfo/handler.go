@@ -7,29 +7,26 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-h/depot/downloadcounter"
 	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/nix/db"
 	"github.com/nix-community/go-nix/pkg/narinfo"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
 
-func New(log *slog.Logger, db *db.DB, privateKey *signature.SecretKey, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) Handler {
+func New(log *slog.Logger, db *db.DB, privateKey *signature.SecretKey, metrics metrics.Metrics) Handler {
 	return Handler{
-		log:             log,
-		db:              db,
-		privateKey:      privateKey,
-		downloadCounter: downloadCounter,
-		metrics:         metrics,
+		log:        log,
+		db:         db,
+		privateKey: privateKey,
+		metrics:    metrics,
 	}
 }
 
 type Handler struct {
-	log             *slog.Logger
-	db              *db.DB
-	privateKey      *signature.SecretKey
-	downloadCounter chan<- downloadcounter.DownloadEvent
-	metrics         metrics.Metrics
+	log        *slog.Logger
+	db         *db.DB
+	privateKey *signature.SecretKey
+	metrics    metrics.Metrics
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +65,6 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.downloadCounter <- downloadcounter.DownloadEvent{Group: "nix", Name: r.URL.Path}
 	h.metrics.IncrementDownloadMetrics(r.Context(), "nix", int64(len(output)))
 }
 

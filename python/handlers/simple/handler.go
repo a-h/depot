@@ -9,31 +9,28 @@ import (
 	"path"
 	"strings"
 
-	"github.com/a-h/depot/downloadcounter"
 	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/python/db"
 	"github.com/a-h/depot/python/models"
 	"github.com/a-h/depot/storage"
 )
 
-func New(log *slog.Logger, db *db.DB, storage storage.Storage, baseURL string, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) Handler {
+func New(log *slog.Logger, db *db.DB, storage storage.Storage, baseURL string, metrics metrics.Metrics) Handler {
 	return Handler{
-		log:             log,
-		db:              db,
-		storage:         storage,
-		baseURL:         strings.TrimSuffix(baseURL, "/"),
-		downloadCounter: downloadCounter,
-		metrics:         metrics,
+		log:     log,
+		db:      db,
+		storage: storage,
+		baseURL: strings.TrimSuffix(baseURL, "/"),
+		metrics: metrics,
 	}
 }
 
 type Handler struct {
-	log             *slog.Logger
-	db              *db.DB
-	storage         storage.Storage
-	baseURL         string
-	downloadCounter chan<- downloadcounter.DownloadEvent
-	metrics         metrics.Metrics
+	log     *slog.Logger
+	db      *db.DB
+	storage storage.Storage
+	baseURL string
+	metrics metrics.Metrics
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -178,7 +175,7 @@ func (h Handler) getPackageHTML(w http.ResponseWriter, index models.SimplePackag
 func (h Handler) getPackageFile(w http.ResponseWriter, r *http.Request, pkg string, fileName string) {
 	path := path.Join(pkg, fileName)
 	h.log.Debug("Getting package file", slog.String("path", path), slog.String("pkg", pkg), slog.String("filename", fileName))
-	reader, exists, err := h.storage.Get(path)
+	reader, exists, err := h.storage.Get(r.Context(), path)
 	if err != nil {
 		h.log.Error("failed to get file", slog.String("path", path), slog.Any("error", err))
 		http.Error(w, "failed to get file", http.StatusInternalServerError)
@@ -196,7 +193,6 @@ func (h Handler) getPackageFile(w http.ResponseWriter, r *http.Request, pkg stri
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	h.downloadCounter <- downloadcounter.DownloadEvent{Group: "python", Name: path}
 	h.metrics.IncrementDownloadMetrics(r.Context(), "python", bytesDownloaded)
 }
 
@@ -228,7 +224,7 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writer, err := h.storage.Put(path)
+	writer, err := h.storage.Put(r.Context(), path)
 	if err != nil {
 		h.log.Error("failed to create file", slog.String("path", path), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)

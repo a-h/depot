@@ -164,8 +164,15 @@ func (p *Push) pushComprehensive(proxyURL, storePath string) error {
 func (p *Push) pushFlakeComprehensive(proxyURL, flakeRef string) error {
 	p.log.Info("evaluating flake reference", slog.String("ref", flakeRef))
 
+	// Split flake reference into base flake and attribute.
+	// flake archive only accepts the base flake (before #), not attributes.
+	baseFlake := flakeRef
+	if before, _, ok := strings.Cut(flakeRef, "#"); ok {
+		baseFlake = before
+	}
+
 	// First, archive the flake source.
-	if err := nixcmd.FlakeArchive(os.Stdout, os.Stderr, proxyURL, flakeRef); err != nil {
+	if err := nixcmd.FlakeArchive(os.Stdout, os.Stderr, proxyURL, baseFlake); err != nil {
 		return fmt.Errorf("failed to archive flake: %w", err)
 	}
 

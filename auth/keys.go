@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -25,24 +26,39 @@ type KeyInfo struct {
 }
 
 // DiscoverSSHKeys discovers available SSH keys from ssh-agent and ~/.ssh/ directory.
-func DiscoverSSHKeys() ([]KeyInfo, error) {
-	var out []KeyInfo
-
+func DiscoverSSHKeys(log *slog.Logger) (out []KeyInfo, err error) {
+	log.Debug("Discovering SSH keys")
 	// 1) Try ssh-agent via SSH_AUTH_SOCK, else try gpg-agent's ssh socket.
 	sock := os.Getenv("SSH_AUTH_SOCK")
 	if sock == "" {
-		if p, err := gpgAgentSSHSock(); err == nil && p != "" {
-			sock = p
+		log.Debug("SSH_AUTH_SOCK not set, trying gpg-agent's SSH socket")
+		s, err := gpgAgentSSHSock()
+		if err != nil {
+			log.Debug("error getting gpg-agent SSH socket", slog.Any("error", err))
+		}
+		if err == nil && s != "" {
+			sock = s
+			log.Debug("using gpg-agent SSH socket", slog.String("socket", sock))
 		}
 	}
 	if sock != "" {
-		if kis, err := listAgentKeys(sock); err == nil {
+		log.Debug("listing agent keys", slog.String("socket", sock))
+		kis, err := listAgentKeys(sock)
+		if err != nil {
+			log.Warn("failed to list SSH agent keys", slog.Any("error", err))
+		}
+		if err == nil {
 			out = append(out, kis...)
 		}
 	}
 
 	// 2) Fallback: scan ~/.ssh/*.pub files.
-	if kis, err := listFileKeys(); err == nil {
+	log.Debug("Scanning ~/.ssh directory for key files")
+	kis, err := listFileKeys()
+	if err != nil {
+		log.Warn("failed to scan for key files", slog.Any("error", err))
+	}
+	if err == nil {
 		out = append(out, kis...)
 	}
 
@@ -50,7 +66,7 @@ func DiscoverSSHKeys() ([]KeyInfo, error) {
 }
 
 // listAgentKeys lists SSH keys from ssh-agent.
-func listAgentKeys(sock string) ([]KeyInfo, error) {
+func listAgentKeys(sock string) (out []KeyInfo, err error) {
 	conn, err := net.Dial("unix", sock)
 	if err != nil {
 		return nil, err
@@ -63,7 +79,6 @@ func listAgentKeys(sock string) ([]KeyInfo, error) {
 		return nil, err
 	}
 
-	var out []KeyInfo
 	for _, k := range keys {
 		pub, err := ssh.ParsePublicKey(k.Marshal())
 		if err != nil {
@@ -75,7 +90,7 @@ func listAgentKeys(sock string) ([]KeyInfo, error) {
 
 		// Create a signer for this key.
 		signer := &agentSigner{
-			agent:     ac,
+			socket:    sock,
 			publicKey: pub,
 		}
 
@@ -208,7 +223,7 @@ func loadPrivateKey(path string) (ssh.Signer, error) {
 
 // agentSigner implements ssh.Signer using ssh-agent.
 type agentSigner struct {
-	agent     agent.Agent
+	socket    string
 	publicKey ssh.PublicKey
 }
 
@@ -217,5 +232,13 @@ func (s *agentSigner) PublicKey() ssh.PublicKey {
 }
 
 func (s *agentSigner) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) {
-	return s.agent.Sign(s.publicKey, data)
+	// Reconnect to agent for each signature to avoid connection lifecycle issues.
+	conn, err := net.Dial("unix", s.socket)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to ssh-agent: %w", err)
+	}
+	defer conn.Close()
+
+	ac := agent.NewClient(conn)
+	return ac.Sign(s.publicKey, data)
 }

@@ -3,10 +3,8 @@ package routes
 import (
 	"log/slog"
 	"net/http"
-	"path/filepath"
 
 	"github.com/a-h/depot/auth"
-	"github.com/a-h/depot/downloadcounter"
 	"github.com/a-h/depot/metrics"
 	authmiddleware "github.com/a-h/depot/middleware/auth"
 	"github.com/a-h/depot/middleware/logger"
@@ -20,19 +18,16 @@ import (
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
 
-func New(log *slog.Logger, nixdb *nixdb.DB, npmdb *npmdb.DB, pythondb *pythondb.DB, storePath string, authConfig *auth.AuthConfig, privateKey *signature.SecretKey, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) http.Handler {
+func New(log *slog.Logger, nixdb *nixdb.DB, nixStorage storage.Storage, npmdb *npmdb.DB, npmStorage storage.Storage, pythondb *pythondb.DB, pythonStorage storage.Storage, authConfig *auth.AuthConfig, privateKey *signature.SecretKey, metrics metrics.Metrics) http.Handler {
 	mux := http.NewServeMux()
 
-	nixStorage := storage.NewFileSystem(filepath.Join(storePath, "nix"))
-	nih := nixhandler.New(log, nixdb, nixStorage, privateKey, downloadCounter, metrics)
+	nih := nixhandler.New(log, nixdb, nixStorage, privateKey, metrics)
 	mux.Handle("/nix/", http.StripPrefix("/nix", nih))
 
-	npmStorage := storage.NewFileSystem(filepath.Join(storePath, "npm"))
-	npmh := npmhandler.New(log, npmdb, npmStorage, downloadCounter, metrics)
+	npmh := npmhandler.New(log, npmdb, npmStorage, metrics)
 	mux.Handle("/npm/", http.StripPrefix("/npm", npmh))
 
-	pythonStorage := storage.NewFileSystem(filepath.Join(storePath, "python"))
-	pythonh := pythonhandler.New(log, pythondb, pythonStorage, "http://localhost:8080/python", downloadCounter, metrics)
+	pythonh := pythonhandler.New(log, pythondb, pythonStorage, "http://localhost:8080/python", metrics)
 	mux.Handle("/python/", http.StripPrefix("/python", pythonh))
 
 	authHandler := authmiddleware.New(log, authConfig, mux)

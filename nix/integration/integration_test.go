@@ -17,7 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/a-h/depot/downloadcounter"
+	"github.com/a-h/depot/accesslog"
+	"github.com/a-h/depot/loggedstorage"
 	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/nix/db"
 	"github.com/a-h/depot/nix/handlers"
@@ -116,9 +117,6 @@ func (ts *testServer) start(t *testing.T) {
 	ts.started = make(chan struct{})
 	ts.nixLogs = newThreadSafeWriter()
 
-	storePath := filepath.Join(ts.tempDir, "store")
-	storage := storage.NewFileSystem(storePath)
-
 	// Initialize database and handlers.
 	sqliteDBPath := fmt.Sprintf("file:%s?mode=rwc", filepath.Join(ts.tempDir, "depot.db"))
 	store, closer, err := store.New(t.Context(), "sqlite", sqliteDBPath)
@@ -131,6 +129,16 @@ func (ts *testServer) start(t *testing.T) {
 		Level: slog.LevelWarn,
 	}))
 
+	metrics, err := metrics.New()
+	if err != nil {
+		t.Fatalf("failed to create metrics: %v", err)
+	}
+
+	// Create storage.
+	al := accesslog.New(store)
+	storePath := filepath.Join(ts.tempDir, "store")
+	storage, storageShutdown := loggedstorage.New(t.Context(), log, storage.NewFileSystem(storePath), al, metrics)
+
 	// Load test private key for signing.
 	privateKey, err := signature.LoadSecretKey(testPrivateKey)
 	if err != nil {
@@ -140,7 +148,7 @@ func (ts *testServer) start(t *testing.T) {
 	// Create HTTP server.
 	ts.server = &http.Server{
 		Addr:    ":8080",
-		Handler: handlers.New(log, db.New(store), storage, &privateKey, make(chan downloadcounter.DownloadEvent, 1), metrics.Metrics{}),
+		Handler: handlers.New(log, db.New(store), storage, &privateKey, metrics),
 	}
 
 	// Start server in goroutine.
@@ -151,6 +159,9 @@ func (ts *testServer) start(t *testing.T) {
 			t.Errorf("server error: %v", err)
 		}
 		close(ts.done)
+		if err := storageShutdown(time.Second); err != nil {
+			t.Error("failed to shut down storage within timeout")
+		}
 	}()
 
 	// Wait for server to start.
@@ -174,6 +185,7 @@ func (ts *testServer) start(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
+
 }
 
 func (ts *testServer) stop(t *testing.T) {
@@ -456,6 +468,7 @@ func TestDepotIntegration(t *testing.T) {
 		defer os.RemoveAll(tempStore)
 
 		// Test copying from the depot to a local store.
+		t.Log("Copying package from depot to local store...")
 		if err := CopyFrom(server.nixLogs, server.nixLogs, tempStore, depotURL, slPath, expectedFlakeStorePath); err != nil {
 			t.Fatalf("failed to copy from depot to local store: %v", err)
 		}

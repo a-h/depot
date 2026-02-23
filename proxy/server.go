@@ -108,7 +108,7 @@ func StartProxyOnPort(log *slog.Logger, targetURL string, port int) (string, fun
 
 // createJWTFromSSHKeys discovers SSH keys and creates a JWT token.
 func createJWTFromSSHKeys(log *slog.Logger) (string, error) {
-	keys, err := auth.DiscoverSSHKeys()
+	keys, err := auth.DiscoverSSHKeys(log)
 	if err != nil {
 		return "", fmt.Errorf("failed to discover SSH keys: %w", err)
 	}
@@ -116,6 +116,8 @@ func createJWTFromSSHKeys(log *slog.Logger) (string, error) {
 	if len(keys) == 0 {
 		return "", fmt.Errorf("no SSH keys found")
 	}
+
+	log.Debug("searching key files", slog.Any("keys", keys))
 
 	// Try to find a key that can be used for signing.
 	for _, keyInfo := range keys {

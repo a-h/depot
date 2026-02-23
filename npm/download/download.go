@@ -157,7 +157,7 @@ func (d *Downloader) fetchMetadata(ctx context.Context, packageName string, upda
 	fileName := filepath.Join(packageName, "metadata.json")
 
 	if !updateMetadata {
-		r, exists, err := d.storage.Get(fileName)
+		r, exists, err := d.storage.Get(ctx, fileName)
 		if err != nil {
 			return m, fmt.Errorf("failed to open existing metadata file: %w", err)
 		}
@@ -186,7 +186,7 @@ func (d *Downloader) fetchMetadata(ctx context.Context, packageName string, upda
 		return m, fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
-	f, err := d.storage.Put(fileName)
+	f, err := d.storage.Put(ctx, fileName)
 	if err != nil {
 		return m, fmt.Errorf("failed to create metadata file: %w", err)
 	}
@@ -208,7 +208,7 @@ func (d *Downloader) downloadTarball(ctx context.Context, version models.Abbrevi
 
 	filePath := filepath.Join(version.Name, fmt.Sprintf("%s-%s.tgz", version.Name, version.Version))
 	if !overwrite {
-		_, exists, err := d.storage.Stat(filePath)
+		_, exists, err := d.storage.Stat(ctx, filePath)
 		if err != nil {
 			return fmt.Errorf("failed to check if file exists: %w", err)
 		}
@@ -234,7 +234,7 @@ func (d *Downloader) downloadTarball(ctx context.Context, version models.Abbrevi
 	}
 
 	// Create file.
-	file, err := d.storage.Put(filePath)
+	file, err := d.storage.Put(ctx, filePath)
 	if err != nil {
 		return err
 	}

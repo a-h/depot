@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/a-h/depot/downloadcounter"
 	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/nix/db"
 	loghandler "github.com/a-h/depot/nix/handlers/log"
@@ -18,10 +17,10 @@ import (
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
 
-func New(log *slog.Logger, db *db.DB, storage storage.Storage, privateKey *signature.SecretKey, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) http.Handler {
+func New(log *slog.Logger, db *db.DB, storage storage.Storage, privateKey *signature.SecretKey, metrics metrics.Metrics) http.Handler {
 	nci := nixcacheinfo.New(log, privateKey)
-	nih := narinfohandler.New(log, db, privateKey, downloadCounter, metrics)
-	nh := narhandler.New(log, storage, downloadCounter, metrics)
+	nih := narinfohandler.New(log, db, privateKey, metrics)
+	nh := narhandler.New(log, storage, metrics)
 	lh := loghandler.New(log)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

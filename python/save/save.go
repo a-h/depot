@@ -130,10 +130,10 @@ func (s *Saver) savePackage(ctx context.Context, line string) error {
 	return nil
 }
 
-func (s *Saver) savePackageFile(_ context.Context, pkg string, file models.SimpleFileEntry) error {
+func (s *Saver) savePackageFile(ctx context.Context, pkg string, file models.SimpleFileEntry) error {
 	// Check the existing file size.
 	fileName := fmt.Sprintf("%s/%s", pkg, file.Filename)
-	size, exists, err := s.storage.Stat(fileName)
+	size, exists, err := s.storage.Stat(ctx, fileName)
 	if err != nil {
 		return fmt.Errorf("failed to stat storage file %s/%s: %w", pkg, file.Filename, err)
 	}
@@ -143,7 +143,7 @@ func (s *Saver) savePackageFile(_ context.Context, pkg string, file models.Simpl
 	}
 
 	// Download and save the file.
-	w, err := s.storage.Put(fileName)
+	w, err := s.storage.Put(ctx, fileName)
 	if err != nil {
 		return fmt.Errorf("failed to create storage writer for %s/%s: %w", pkg, file.Filename, err)
 	}
@@ -163,7 +163,7 @@ func (s *Saver) savePackageFile(_ context.Context, pkg string, file models.Simpl
 
 	// Save the metadata alongside the file.
 	metadataName := fmt.Sprintf("%s/%s.json", pkg, file.Filename)
-	metadataWriter, err := s.storage.Put(metadataName)
+	metadataWriter, err := s.storage.Put(ctx, metadataName)
 	if err != nil {
 		return fmt.Errorf("failed to create storage writer for metadata %s: %w", metadataName, err)
 	}

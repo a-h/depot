@@ -30,8 +30,8 @@ func New() (m Metrics, err error) {
 	if m.DownloadedBytesTotal, err = meter.Int64Counter("downloaded_bytes_total", metric.WithDescription("Total bytes downloaded from depot")); err != nil {
 		return Metrics{}, fmt.Errorf("failed to create downloaded_bytes_total counter: %w", err)
 	}
-	if m.DownloadCounterErrorsTotal, err = meter.Int64Counter("download_counter_errors_total", metric.WithDescription("Total number of download counter processing errors")); err != nil {
-		return Metrics{}, fmt.Errorf("failed to create download_counter_errors_total counter: %w", err)
+	if m.AccessLogErrorsTotal, err = meter.Int64Counter("access_log_errors_total", metric.WithDescription("Total number of access log processing errors")); err != nil {
+		return Metrics{}, fmt.Errorf("failed to create access_log_errors_total counter: %w", err)
 	}
 	if m.PackageUploadsTotal, err = meter.Int64Counter("package_uploads_total", metric.WithDescription("Total number of successfully uploaded package files")); err != nil {
 		return Metrics{}, fmt.Errorf("failed to create package_uploads_total counter: %w", err)
@@ -44,11 +44,11 @@ func New() (m Metrics, err error) {
 }
 
 type Metrics struct {
-	TotalDownloads             metric.Int64Counter
-	DownloadedBytesTotal       metric.Int64Counter
-	DownloadCounterErrorsTotal metric.Int64Counter
-	PackageUploadsTotal        metric.Int64Counter
-	UploadedBytesTotal         metric.Int64Counter
+	TotalDownloads       metric.Int64Counter
+	DownloadedBytesTotal metric.Int64Counter
+	AccessLogErrorsTotal metric.Int64Counter
+	PackageUploadsTotal  metric.Int64Counter
+	UploadedBytesTotal   metric.Int64Counter
 }
 
 func ListenAndServe(addr string) error {
@@ -57,25 +57,25 @@ func ListenAndServe(addr string) error {
 	return http.ListenAndServe(addr, mux)
 }
 
-func (m Metrics) IncrementDownloadMetrics(ctx context.Context, group string, bytes int64) {
+func (m Metrics) IncrementDownloadMetrics(ctx context.Context, ecosystem string, bytes int64) {
 	if m.TotalDownloads == nil || m.DownloadedBytesTotal == nil {
 		return
 	}
-	m.TotalDownloads.Add(ctx, 1, metric.WithAttributes(attribute.String("group", group)))
-	m.DownloadedBytesTotal.Add(ctx, bytes, metric.WithAttributes(attribute.String("group", group)))
+	m.TotalDownloads.Add(ctx, 1, metric.WithAttributes(attribute.String("ecosystem", ecosystem)))
+	m.DownloadedBytesTotal.Add(ctx, bytes, metric.WithAttributes(attribute.String("ecosystem", ecosystem)))
 }
 
-func (m Metrics) IncrementDownloadCounterErrors(ctx context.Context, group string) {
-	if m.DownloadCounterErrorsTotal == nil {
+func (m Metrics) IncrementAccessLogErrors(ctx context.Context) {
+	if m.AccessLogErrorsTotal == nil {
 		return
 	}
-	m.DownloadCounterErrorsTotal.Add(ctx, 1, metric.WithAttributes(attribute.String("group", group)))
+	m.AccessLogErrorsTotal.Add(ctx, 1)
 }
 
-func (m Metrics) IncrementUploadMetrics(ctx context.Context, group string, bytes int64) {
+func (m Metrics) IncrementUploadMetrics(ctx context.Context, ecosystem string, bytes int64) {
 	if m.PackageUploadsTotal == nil || m.UploadedBytesTotal == nil {
 		return
 	}
-	m.PackageUploadsTotal.Add(ctx, 1, metric.WithAttributes(attribute.String("group", group)))
-	m.UploadedBytesTotal.Add(ctx, bytes, metric.WithAttributes(attribute.String("group", group)))
+	m.PackageUploadsTotal.Add(ctx, 1, metric.WithAttributes(attribute.String("ecosystem", ecosystem)))
+	m.UploadedBytesTotal.Add(ctx, bytes, metric.WithAttributes(attribute.String("ecosystem", ecosystem)))
 }

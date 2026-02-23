@@ -29,9 +29,12 @@
         pkgs = import nixpkgs {
           inherit system;
           overlays = [
-            (self: super: {
+            (final: prev: {
               xc = xc.outputs.packages.${system}.xc;
               version = version.outputs.packages.${system}.default;
+              python3WithPip = prev.python3.withPackages (ps: [
+                ps.pip
+              ]);
             })
           ];
         };
@@ -95,6 +98,10 @@
         pkgs.go
         pkgs.version
         pkgs.xc
+
+        # Used to test the depot system.
+        pkgs.nodejs
+        pkgs.python3WithPip
       ];
 
       name = "depot";

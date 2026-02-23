@@ -304,6 +304,52 @@ Push a store path to the binary cache. If authentication is enabled, use the `pr
 nix copy --to http://localhost:8080 `nix eval github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526#sl --raw` --refresh
 ```
 
+### push-sample-packages
+
+Push a couple of NPM packages, Python packages, and Nix packages.
+
+```bash
+export DEPOT_URL=http://localhost:8080
+
+# Save and push NPM packages.
+go run ./cmd/depot npm save express lodash
+go run ./cmd/depot npm push $DEPOT_URL
+
+# Save and push Python packages.
+go run ./cmd/depot python save "requests>=2.0.0" "flask==2.3.0"
+go run ./cmd/depot python push $DEPOT_URL
+
+# Push Nix packages.
+go run ./cmd/depot nix push $DEPOT_URL --flake-refs nixpkgs#hello
+go run ./cmd/depot nix push $DEPOT_URL --flake-refs nixpkgs#jq
+```
+
+### download-sample-packages
+
+Download a couple of NPM packages, Python packages, and Nix packages from depot.
+
+```bash
+export DEPOT_URL=http://localhost:8080
+export DEPOT_NPM_URL=$DEPOT_URL/npm
+export DEPOT_PYTHON_URL=$DEPOT_URL/python/simple/
+export DEPOT_NIX_URL=$DEPOT_URL/nix
+export DOWNLOAD_DIR=$(mktemp -d)
+
+echo "Downloading artifacts to $DOWNLOAD_DIR"
+
+# Download NPM packages from depot.
+npm pack --registry $DEPOT_NPM_URL --pack-destination $DOWNLOAD_DIR express lodash
+
+# Download Python packages from depot.
+python -m pip download --dest $DOWNLOAD_DIR --index-url $DEPOT_PYTHON_URL requests flask
+
+# Download Nix packages from depot.
+nix build \
+  --no-link \
+  --option substituters "$DEPOT_NIX_URL https://cache.nixos.org" \
+  nixpkgs#hello nixpkgs#jq
+```
+
 ### store-list
 
 ```bash
@@ -312,8 +358,6 @@ nix store ls --store http://localhost:8080 --recursive /nix/store/4h86fqf4nl9l4d
 
 ### test
 
-interactive: true
-
 Run all tests including integration tests:
 
 ```bash
@@ -321,8 +365,6 @@ go test ./... -v -coverprofile=coverage.out -timeout 5m
 ```
 
 ### test-coverage-summary
-
-interactive: true
 
 Show coverage summary:
 
@@ -335,7 +377,7 @@ go tool cover -func=coverage.out | grep total
 Warning: this may damage the running db.
 
 ```bash
-sqlite3 -header -column "file:$HOME/depot-store/depot.db?ro=1" "SELECT hashPart, namePart FROM NARs WHERE namePart LIKE '%source%';"
+sqlite3 -header -column "file:$HOME/depot-store/depot.db?ro=1" "SELECT key from kv;"
 ```
 
 ### push-without-tools
@@ -363,7 +405,7 @@ nix copy --to http://localhost:8080/nix $(
 
 If you're hosting Depot on Docker or Kubernetes, you may encounter SQLite disk I/O errors due to filesystem restrictions. If you see an error like this:
 
-```
+```text
 sqlite: step: disk I/O error
 ```
 

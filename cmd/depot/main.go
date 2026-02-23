@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/a-h/depot/accesslog"
 	"github.com/a-h/depot/auth"
 	"github.com/a-h/depot/cmd/globals"
-	"github.com/a-h/depot/downloadcounter"
+	"github.com/a-h/depot/loggedstorage"
 	depotmetrics "github.com/a-h/depot/metrics"
 	nixcmd "github.com/a-h/depot/nix/cmd"
 	nixdb "github.com/a-h/depot/nix/db"
@@ -19,6 +21,7 @@ import (
 	npmdb "github.com/a-h/depot/npm/db"
 	pythoncmd "github.com/a-h/depot/python/cmd"
 	pythondb "github.com/a-h/depot/python/db"
+	"github.com/a-h/depot/storage"
 
 	"github.com/a-h/depot/routes"
 	"github.com/a-h/depot/store"
@@ -114,23 +117,32 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 		return fmt.Errorf("failed to initialize metrics: %w", err)
 	}
 
-	counter, counterShutdown := downloadcounter.NewBufferedCounter(context.Background(), log, store, metrics, 2048)
-
 	go func() {
 		if err := depotmetrics.ListenAndServe(cmd.MetricsListenAddr); err != nil {
 			log.Error("metrics server exited", slog.String("addr", cmd.MetricsListenAddr), slog.String("error", err.Error()))
 		}
 	}()
 
+	// Create logged storage to track usage metrics.
+	al := accesslog.New(store)
+	sctx := context.Background()
+	nixStorage, nixStorageShutdown := loggedstorage.New(sctx, log, storage.NewFileSystem(filepath.Join(cmd.StorePath, "nix")), al, metrics)
+	npmStorage, npmStorageShutdown := loggedstorage.New(sctx, log, storage.NewFileSystem(filepath.Join(cmd.StorePath, "npm")), al, metrics)
+	pythonStorage, pythonStorageShutdown := loggedstorage.New(sctx, log, storage.NewFileSystem(filepath.Join(cmd.StorePath, "python")), al, metrics)
+
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: routes.New(log, nixdb.New(store), npmdb.New(store), pythondb.New(store), cmd.StorePath, authConfig, privateKey, counter, metrics),
+		Handler: routes.New(log, nixdb.New(store), nixStorage, npmdb.New(store), npmStorage, pythondb.New(store), pythonStorage, authConfig, privateKey, metrics),
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("metricsAddr", cmd.MetricsListenAddr), slog.String("storePath", cmd.StorePath))
 	err = s.ListenAndServe()
-	log.Debug("server exited, shutting down download counter", slog.String("error", err.Error()))
-	log.Debug("waiting for download counter to finish processing events")
-	counterShutdown()
+	log.Debug("server exited", slog.String("error", err.Error()))
+	log.Debug("waiting 30s for nix storage to finish processing events")
+	nixStorageShutdown(30 * time.Second)
+	log.Debug("waiting 30s for npm storage to finish processing events")
+	npmStorageShutdown(30 * time.Second)
+	log.Debug("waiting 30s for python storage to finish processing events")
+	pythonStorageShutdown(30 * time.Second)
 	log.Info("server shutdown complete")
 	return err
 }

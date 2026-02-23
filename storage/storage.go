@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -9,9 +10,9 @@ import (
 
 // Storage interface abstracts file storage operations for reading and writing.
 type Storage interface {
-	Stat(filename string) (size int64, exists bool, err error)
-	Get(filename string) (r io.ReadCloser, exists bool, err error)
-	Put(filename string) (w io.WriteCloser, err error)
+	Stat(ctx context.Context, filename string) (size int64, exists bool, err error)
+	Get(ctx context.Context, filename string) (r io.ReadCloser, exists bool, err error)
+	Put(ctx context.Context, filename string) (w io.WriteCloser, err error)
 }
 
 var _ Storage = (*FileSystem)(nil)
@@ -28,7 +29,7 @@ func NewFileSystem(basePath string) *FileSystem {
 	}
 }
 
-func (fs *FileSystem) Stat(filename string) (size int64, exists bool, err error) {
+func (fs *FileSystem) Stat(ctx context.Context, filename string) (size int64, exists bool, err error) {
 	fullPath := filepath.Join(fs.basePath, filename)
 	info, err := os.Stat(fullPath)
 	if err != nil {
@@ -40,7 +41,7 @@ func (fs *FileSystem) Stat(filename string) (size int64, exists bool, err error)
 	return info.Size(), true, nil
 }
 
-func (fs *FileSystem) Get(filename string) (r io.ReadCloser, exists bool, err error) {
+func (fs *FileSystem) Get(ctx context.Context, filename string) (r io.ReadCloser, exists bool, err error) {
 	fullPath := filepath.Join(fs.basePath, filename)
 	file, err := os.Open(fullPath)
 	if err != nil {
@@ -52,7 +53,7 @@ func (fs *FileSystem) Get(filename string) (r io.ReadCloser, exists bool, err er
 	return file, true, nil
 }
 
-func (fs *FileSystem) Put(filename string) (w io.WriteCloser, err error) {
+func (fs *FileSystem) Put(ctx context.Context, filename string) (w io.WriteCloser, err error) {
 	fullPath := filepath.Join(fs.basePath, filename)
 
 	// Create directory structure.

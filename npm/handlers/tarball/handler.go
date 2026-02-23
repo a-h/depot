@@ -7,26 +7,23 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/a-h/depot/downloadcounter"
 	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/storage"
 )
 
-func New(log *slog.Logger, storage storage.Storage, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) Handler {
+func New(log *slog.Logger, storage storage.Storage, metrics metrics.Metrics) Handler {
 	return Handler{
-		log:             log,
-		storage:         storage,
-		downloadCounter: downloadCounter,
-		metrics:         metrics,
+		log:     log,
+		storage: storage,
+		metrics: metrics,
 	}
 }
 
 // Handler serves NPM package tarballs.
 type Handler struct {
-	log             *slog.Logger
-	storage         storage.Storage
-	downloadCounter chan<- downloadcounter.DownloadEvent
-	metrics         metrics.Metrics
+	log     *slog.Logger
+	storage storage.Storage
+	metrics metrics.Metrics
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +49,7 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if file exists and open for reading using Storage interface.
-	file, exists, err := h.storage.Get(requestPath)
+	file, exists, err := h.storage.Get(r.Context(), requestPath)
 	if err != nil {
 		h.log.Error("failed to read tarball", slog.String("path", requestPath), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -74,7 +71,6 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.downloadCounter <- downloadcounter.DownloadEvent{Group: "npm", Name: requestPath}
 	h.metrics.IncrementDownloadMetrics(r.Context(), "npm", bytesDownloaded)
 }
 
@@ -91,7 +87,7 @@ func (h Handler) Put(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use Storage interface for writing.
-	f, err := h.storage.Put(path)
+	f, err := h.storage.Put(r.Context(), path)
 	if err != nil {
 		h.log.Error("failed to create tarball", slog.String("path", path), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
