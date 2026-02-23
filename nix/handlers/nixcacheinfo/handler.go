@@ -20,9 +20,14 @@ type Handler struct {
 	privateKey *signature.SecretKey
 }
 
+const CacheInfo = `StoreDir: /nix/store
+WantMassQuery: 1
+Priority: 30
+`
+
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprint(w, "StoreDir: /nix/store\nWantMassQuery: 1\nPriority: 30\n")
+	fmt.Fprint(w, CacheInfo)
 
 	// Add public key if we have a private key.
 	if h.privateKey != nil {
