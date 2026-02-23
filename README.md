@@ -30,7 +30,7 @@ depot serve --private-key signing.key --verbose
 
 ### 3. Configure Nix to trust the cache
 
-Extract the public key from your signing key:
+Extract the public key from your signing key, or fetch the public key from the Nix cache info handler (`http://localhost:8080/nix/nix-cache-info`).
 
 ```bash
 # Convert the private key to public key
@@ -246,8 +246,6 @@ go run ./cmd/depot
 
 ### serve
 
-Interactive: true
-
 ```bash
 go run ./cmd/depot serve --store-path=$HOME/depot-store --verbose
 ```
@@ -272,15 +270,11 @@ nix develop
 
 ### docker-build
 
-Interactive: true
-
 ```bash
 nix build .#docker-image
 ```
 
 ### docker-load
-
-Interactive: true
 
 Once you've built the image, you can load it into a local Docker daemon with `docker load`.
 
@@ -291,15 +285,11 @@ docker load < result
 
 ### microk8s-load
 
-Interactive: true
-
 ```bash
 gunzip -c result | microk8s ctr image import -
 ```
 
 ### docker-run
-
-Interactive: true
 
 ```bash
 mkdir -p ${HOME}/depot-store
@@ -343,8 +333,6 @@ go tool cover -func=coverage.out | grep total
 ### sqlite-find
 
 Warning: this may damage the running db.
-
-Interactive: true
 
 ```bash
 sqlite3 -header -column "file:$HOME/depot-store/depot.db?ro=1" "SELECT hashPart, namePart FROM NARs WHERE namePart LIKE '%source%';"

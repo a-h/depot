@@ -11,6 +11,8 @@ import (
 
 	_ "embed"
 
+	"github.com/a-h/depot/downloadcounter"
+	"github.com/a-h/depot/metrics"
 	"github.com/a-h/depot/nix/db"
 	"github.com/a-h/depot/store"
 )
@@ -28,7 +30,12 @@ func TestHandler(t *testing.T) {
 	}
 	defer closer()
 
-	h := New(log, db.New(store), nil)
+	counter := make(chan downloadcounter.DownloadEvent, 100)
+	metrics, err := metrics.New()
+	if err != nil {
+		t.Fatalf("failed to create metrics: %v", err)
+	}
+	h := New(log, db.New(store), nil, counter, metrics)
 
 	t.Run("Get returns 404 if narinfo not found", func(t *testing.T) {
 		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/16hvpw4b3r05girazh4rnwbw0jgjkb4l.narinfo", nil)
@@ -55,6 +62,16 @@ func TestHandler(t *testing.T) {
 		}
 		if w.Body.String() != libGCCNarInfo {
 			t.Fatalf("expected body not found, got:\n%s", w.Body.String())
+		}
+		var downloadCount int
+		select {
+		case event := <-counter:
+			if event.Name != "/16hvpw4b3r05girazh4rnwbw0jgjkb4l.narinfo" {
+				t.Fatalf("expected download event for 16hvpw4b3r05girazh4rnwbw0jgjkb4l.narinfo, got %s", event.Name)
+			}
+			downloadCount++
+		default:
+			t.Fatal("expected download event, got none")
 		}
 	})
 }

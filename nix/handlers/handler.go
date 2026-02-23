@@ -20,7 +20,7 @@ import (
 
 func New(log *slog.Logger, db *db.DB, storage storage.Storage, privateKey *signature.SecretKey, downloadCounter chan<- downloadcounter.DownloadEvent, metrics metrics.Metrics) http.Handler {
 	nci := nixcacheinfo.New(log, privateKey)
-	nih := narinfohandler.New(log, db, privateKey)
+	nih := narinfohandler.New(log, db, privateKey, downloadCounter, metrics)
 	nh := narhandler.New(log, storage, downloadCounter, metrics)
 	lh := loghandler.New(log)
 
