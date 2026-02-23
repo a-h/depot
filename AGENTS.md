@@ -1,17 +1,32 @@
 # Coding style
 
-Comments end with a full stop.
+This project is a package storage and cache server for Nix, NPM, and Python.
 
-Constructed URLs need to use path escaping: fmt.Sprintf("/flows/%s/delete", url.PathEscape(flow.ID)).
+## Markdown
 
-After creating new files or updating previous ones, check that the file isn't corrupted.
+- Headings do not end with punctuation.
+- Ensure that markdown linting passes.
 
-Test names are positive assertions of behaviour, e.g. "functions can return multiple values".
+## General
 
-Use subtests, and table-driven tests where appropriate.
+- End comments with a full stop (period).
+- Use path escaping for constructed URLs: fmt.Sprintf("/flows/%s/delete", url.PathEscape(flow.ID)).
+- Check that new and updated files are not corrupted.
+- Minimise comment use in written code.
+- Keep logging on a single line.
+- Follow the Go line-of-sight principle.
 
-Avoid the use of interface{} - in modern Go, use any.
+## Go style
 
-Avoid for i := 0; i < 10; i++ - modern Go supports the for range 10 construct, and b.Loop() in benchmarks.
+- Write test names as positive assertions of behaviour, e.g. "functions can return multiple values".
+- Use subtests, and table-driven tests where appropriate.
+- Use `any` instead of `interface{}`.
+- Prefer `for range 10` and `b.Loop()` over `for i := 0; i < 10; i++`.
+- Don't write 1-3 line helper functions that only get used once, they're not required.
+- Return static HTTP error messages that do not expose internal details.
+- Use `defer r.Body.Close()` to ensure request bodies are closed.
 
-Use xc -s to list all tasks, e.g. compiling, running, testing.
+## Tasks and testing
+
+- Run `xc -s` to list available tasks.
+- Run tests `xc test` to verify correctness.

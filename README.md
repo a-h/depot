@@ -1,6 +1,6 @@
 # github.com/a-h/depot
 
-Storage for Nix and NPM packages.
+Storage for Nix, NPM, and Python packages.
 
 ## Features
 
