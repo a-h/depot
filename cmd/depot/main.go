@@ -89,7 +89,7 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 			if err != nil {
 				return fmt.Errorf("failed to get user home directory: %w", err)
 			}
-			cmd.StorePath = fmt.Sprintf("%s/depot-store", home)
+			cmd.StorePath = filepath.Join(home, "depot-store")
 		}
 		if err := os.MkdirAll(cmd.StorePath, 0755); err != nil {
 			return fmt.Errorf("failed to create store directory: %w", err)
