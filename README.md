@@ -11,6 +11,7 @@ Storage for Nix, NPM, and Python packages.
 - **Compression support**: Automatic decompression of uploaded NAR files
 - **NAR processing**: Uses go-nix library for proper NAR file parsing and extraction
 - **Logging**: Structured JSON logging with configurable verbosity
+- **Storage backends**: Filesystem or S3-compatible storage (AWS S3, MinIO, GCP Cloud Storage)
 
 ## Nix usage
 
@@ -230,6 +231,45 @@ The server supports uploading NAR files in multiple compression formats:
 
 The server automatically detects the compression format from the URL and decompresses the content before processing.
 
+## S3 Storage Configuration
+
+Start server with S3 storage backend:
+
+```bash
+# Using AWS S3 with IAM role (EC2/ECS/Fargate).
+depot serve \
+  --storage-type=s3 \
+  --s3-bucket=my-depot-bucket \
+  --s3-region=us-east-1 \
+  --database-url=postgres://user:pass@host/db
+
+# Using MinIO with explicit credentials.
+depot serve \
+  --storage-type=s3 \
+  --s3-bucket=depot \
+  --s3-region=us-east-1 \
+  --s3-endpoint=http://localhost:9000 \
+  --s3-access-key-id=minioadmin \
+  --s3-secret-access-key=minioadmin \
+  --s3-force-path-style=true \
+  --database-url=sqlite:///tmp/depot.db
+
+# Environment variables can also be used.
+export DEPOT_STORAGE_TYPE=s3
+export DEPOT_S3_BUCKET=my-depot-bucket
+export DEPOT_S3_REGION=us-east-1
+depot serve
+```
+
+S3 configuration options:
+- `--storage-type`: Set to `s3` for S3 storage
+- `--s3-bucket`: S3 bucket name (required)
+- `--s3-region`: AWS region (default: us-east-1)
+- `--s3-endpoint`: Custom endpoint for MinIO/LocalStack
+- `--s3-access-key-id`: Access key (uses IAM if not set)
+- `--s3-secret-access-key`: Secret key (uses IAM if not set)
+- `--s3-force-path-style`: Use path-style URLs (required for MinIO)
+
 ## Tasks
 
 ### build
@@ -362,6 +402,12 @@ Run all tests including integration tests:
 
 ```bash
 go test ./... -v -coverprofile=coverage.out -timeout 5m
+```
+
+### test-s3-integration
+
+```bash
+go test ./storage -v -run TestS3Storage
 ```
 
 ### test-coverage-summary

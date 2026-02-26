@@ -26,7 +26,7 @@ This project is a package storage and cache server for Nix, NPM, and Python.
 - Return static HTTP error messages that do not expose internal details.
 - Use `defer r.Body.Close()` to ensure request bodies are closed.
 
-## Tasks and testing
+## Running tasks and tests
 
 - Run `xc -s` to list available tasks.
 - Run tests `xc test` to verify correctness.
