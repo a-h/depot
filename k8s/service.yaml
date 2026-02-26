@@ -5,6 +5,10 @@ metadata:
   namespace: depot
   labels:
     app: depot
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "9090"
 spec:
   type: ClusterIP
   ports:
@@ -12,5 +16,9 @@ spec:
     targetPort: 8080
     protocol: TCP
     name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
   selector:
     app: depot

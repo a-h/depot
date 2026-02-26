@@ -14,6 +14,10 @@ spec:
     metadata:
       labels:
         app: depot
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9090"
     spec:
       containers:
       - name: depot
@@ -22,6 +26,8 @@ spec:
         ports:
         - containerPort: 8080
           name: http
+        - containerPort: 9090
+          name: metrics
         env:
         - name: DEPOT_STORE_PATH
           value: /depot-store
@@ -29,6 +35,8 @@ spec:
           value: "0.0.0.0"
         - name: DEPOT_PORT
           value: "8080"
+        - name: DEPOT_METRICS_LISTEN_ADDR
+          value: ":9090"
         - name: DEPOT_AUTH_FILE
           value: /etc/depot/auth/auth.keys
         volumeMounts:
