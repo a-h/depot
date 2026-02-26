@@ -200,6 +200,8 @@ r ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... readonly@desktop
 w ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... deploy@ci
 ```
 
+You can fetch public SSH keys from a Github username, by adding `.keys`, e.g. <https://github.com/$GITHUB_USERNAME.keys>
+
 ### Authentication Behavior
 
 - If **any** key has read-only (`r`) permission, **all** access requires authentication

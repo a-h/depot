@@ -29,9 +29,14 @@ spec:
           value: "0.0.0.0"
         - name: DEPOT_PORT
           value: "8080"
+        - name: DEPOT_AUTH_FILE
+          value: /etc/depot/auth/auth.keys
         volumeMounts:
         - name: store
           mountPath: /depot-store
+        - name: auth
+          mountPath: /etc/depot/auth
+          readOnly: true
         resources:
           requests:
             memory: "512Mi"
@@ -55,3 +60,6 @@ spec:
       - name: store
         persistentVolumeClaim:
           claimName: depot-pvc
+      - name: auth
+        secret:
+          secretName: depot-auth
