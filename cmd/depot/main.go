@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/a-h/depot/auth"
 	"github.com/a-h/depot/cmd/globals"
 	"github.com/a-h/depot/loggedstorage"
+	"github.com/a-h/depot/metrics"
 	depotmetrics "github.com/a-h/depot/metrics"
 	nixcmd "github.com/a-h/depot/nix/cmd"
 	nixdb "github.com/a-h/depot/nix/db"
@@ -48,14 +50,25 @@ func (cmd *VersionCmd) Run(globals *globals.Globals) error {
 	return nil
 }
 
+type S3Flags struct {
+	Bucket          string `help:"S3 bucket name (required when storage-type=s3)" env:"DEPOT_S3_BUCKET"`
+	Region          string `help:"S3 region" default:"us-east-1" env:"DEPOT_S3_REGION"`
+	Endpoint        string `help:"S3 endpoint URL (for MinIO/custom endpoints)" env:"DEPOT_S3_ENDPOINT"`
+	AccessKeyID     string `help:"S3 access key ID (uses IAM role if not set)" env:"DEPOT_S3_ACCESS_KEY_ID"`
+	SecretAccessKey string `help:"S3 secret access key (uses IAM role if not set)" env:"DEPOT_S3_SECRET_ACCESS_KEY"`
+	ForcePathStyle  bool   `help:"Use path-style S3 URLs (required for MinIO)" env:"DEPOT_S3_FORCE_PATH_STYLE"`
+}
+
 type ServeCmd struct {
-	DatabaseType      string `help:"Choice of database (sqlite, rqlite or postgres)" default:"sqlite" enum:"sqlite,rqlite,postgres" env:"DEPOT_DATABASE_TYPE"`
-	DatabaseURL       string `help:"Database connection URL" default:"" env:"DEPOT_DATABASE_URL"`
-	ListenAddr        string `help:"Address to listen on" default:":8080" env:"DEPOT_LISTEN_ADDR"`
-	MetricsListenAddr string `help:"Address for metrics endpoint" default:":9090" env:"DEPOT_METRICS_LISTEN_ADDR"`
-	StorePath         string `help:"Path to file store" default:"" env:"DEPOT_STORE_PATH"`
-	AuthFile          string `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
-	PrivateKey        string `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
+	DatabaseType      string  `help:"Choice of database (sqlite, rqlite or postgres)" default:"sqlite" enum:"sqlite,rqlite,postgres" env:"DEPOT_DATABASE_TYPE"`
+	DatabaseURL       string  `help:"Database connection URL" default:"" env:"DEPOT_DATABASE_URL"`
+	ListenAddr        string  `help:"Address to listen on" default:":8080" env:"DEPOT_LISTEN_ADDR"`
+	MetricsListenAddr string  `help:"Address for metrics endpoint" default:":9090" env:"DEPOT_METRICS_LISTEN_ADDR"`
+	StorePath         string  `help:"Path to file store" default:"" env:"DEPOT_STORE_PATH"`
+	AuthFile          string  `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
+	PrivateKey        string  `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
+	StorageType       string  `help:"Storage backend type (fs or s3)" default:"fs" enum:"fs,s3" env:"DEPOT_STORAGE_TYPE"`
+	S3                S3Flags `embed:"" prefix:"s3-"`
 }
 
 func (cmd *ServeCmd) Run(globals *globals.Globals) error {
@@ -64,16 +77,27 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 		opts.Level = slog.LevelDebug
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
-	if cmd.StorePath == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get user home directory: %w", err)
+
+	switch cmd.StorageType {
+	case "s3":
+		if cmd.S3.Bucket == "" {
+			return fmt.Errorf("--s3-bucket must also be set when --storage-type=s3")
 		}
-		cmd.StorePath = fmt.Sprintf("%s/depot-store", home)
+	case "fs":
+		if cmd.StorePath == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("failed to get user home directory: %w", err)
+			}
+			cmd.StorePath = fmt.Sprintf("%s/depot-store", home)
+		}
+		if err := os.MkdirAll(cmd.StorePath, 0755); err != nil {
+			return fmt.Errorf("failed to create store directory: %w", err)
+		}
+	default:
+		return fmt.Errorf("unknown storage type: %q - expected 'fs' or 's3'", cmd.StorageType)
 	}
-	if err := os.MkdirAll(cmd.StorePath, 0755); err != nil {
-		return fmt.Errorf("failed to create store directory: %w", err)
-	}
+
 	if cmd.DatabaseURL == "" {
 		cmd.DatabaseURL = fmt.Sprintf("file:%s?cache=shared&mode=rwc&_busy_timeout=5000&_txlock=immediate&_journal_mode=DELETE", filepath.Join(cmd.StorePath, "depot.db"))
 	}
@@ -126,9 +150,12 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 	// Create logged storage to track usage metrics.
 	al := accesslog.New(store)
 	sctx := context.Background()
-	nixStorage, nixStorageShutdown := loggedstorage.New(sctx, log, storage.NewFileSystem(filepath.Join(cmd.StorePath, "nix")), al, metrics)
-	npmStorage, npmStorageShutdown := loggedstorage.New(sctx, log, storage.NewFileSystem(filepath.Join(cmd.StorePath, "npm")), al, metrics)
-	pythonStorage, pythonStorageShutdown := loggedstorage.New(sctx, log, storage.NewFileSystem(filepath.Join(cmd.StorePath, "python")), al, metrics)
+	nixStorage, nixStorageShutdown, nixStorageErr := cmd.createStorage(sctx, log, "nix", al, metrics)
+	npmStorage, npmStorageShutdown, npmStorageErr := cmd.createStorage(sctx, log, "npm", al, metrics)
+	pythonStorage, pythonStorageShutdown, pythonStorageErr := cmd.createStorage(sctx, log, "python", al, metrics)
+	if err = errors.Join(nixStorageErr, npmStorageErr, pythonStorageErr); err != nil {
+		return err
+	}
 
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
@@ -145,6 +172,33 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 	pythonStorageShutdown(30 * time.Second)
 	log.Info("server shutdown complete")
 	return err
+}
+
+func (cmd *ServeCmd) createStorage(ctx context.Context, log *slog.Logger, prefix string, al *accesslog.AccessLog, m metrics.Metrics) (s storage.Storage, shutdown func(timeout time.Duration) error, err error) {
+	var baseStorage storage.Storage
+	switch cmd.StorageType {
+	case "s3":
+		baseStorage, err = storage.NewS3(ctx, storage.S3Config{
+			Bucket:          cmd.S3.Bucket,
+			Prefix:          prefix + "/",
+			Region:          cmd.S3.Region,
+			Endpoint:        cmd.S3.Endpoint,
+			AccessKeyID:     cmd.S3.AccessKeyID,
+			SecretAccessKey: cmd.S3.SecretAccessKey,
+			ForcePathStyle:  cmd.S3.ForcePathStyle,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create s3 storage: %w", err)
+		}
+	case "fs":
+		baseStorage = storage.NewFileSystem(filepath.Join(cmd.StorePath, prefix))
+	default:
+		return nil, nil, fmt.Errorf("unknown storage type %q", cmd.StorageType)
+	}
+
+	// Wrap the filesystem in access control.
+	s, shutdown = loggedstorage.New(ctx, log, baseStorage, al, m)
+	return s, shutdown, nil
 }
 
 type ProxyCmd struct {

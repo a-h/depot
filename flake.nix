@@ -47,7 +47,7 @@
         pname = name;
         version = v;
         src = gitignore.lib.gitignoreSource ./.;
-        vendorHash = "sha256-XpSKNrSBAeh/FefLxNYDP0xDr+8e3J2wuJQqXef9DYY=";
+        vendorHash = "sha256-R/yWffKtZE7noydIKRV/DK0y5Nhh/HRGLjHeQPF04XU=";
         subPackages = [ "cmd/${name}" ];
         ldflags = [
           "-s"
@@ -102,6 +102,7 @@
         # Used to test the depot system.
         pkgs.nodejs
         pkgs.python3WithPip
+        pkgs.minio
       ];
 
       name = "depot";
