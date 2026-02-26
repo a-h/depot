@@ -196,7 +196,7 @@ func (cmd *ServeCmd) createStorage(ctx context.Context, log *slog.Logger, prefix
 		return nil, nil, fmt.Errorf("unknown storage type %q", cmd.StorageType)
 	}
 
-	// Wrap the filesystem in access control.
+	// Wrap the base storage with logging and metrics.
 	s, shutdown = loggedstorage.New(ctx, log, baseStorage, al, m)
 	return s, shutdown, nil
 }
