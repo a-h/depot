@@ -12,6 +12,7 @@ Storage for Nix, NPM, and Python packages.
 - **NAR processing**: Uses go-nix library for proper NAR file parsing and extraction
 - **Logging**: Structured JSON logging with configurable verbosity
 - **Storage backends**: Filesystem or S3-compatible storage (AWS S3, MinIO, GCP Cloud Storage)
+- **Kubernetes deployment**: See `./k8s` for example Kubernetes manifests.
 
 ## Nix usage
 
@@ -262,6 +263,7 @@ depot serve
 ```
 
 S3 configuration options:
+
 - `--storage-type`: Set to `s3` for S3 storage
 - `--s3-bucket`: S3 bucket name (required)
 - `--s3-region`: AWS region (default: us-east-1)
