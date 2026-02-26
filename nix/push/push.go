@@ -95,8 +95,17 @@ func (p *Push) PushFromStdin() error {
 	}
 	defer cleanup()
 
-	proxyURL := "http://" + addr
-	p.log.Info("started proxy", slog.String("addr", addr), slog.String("target", p.target))
+	targetURL, err := url.Parse(p.target)
+	if err != nil {
+		return fmt.Errorf("invalid target URL: %w", err)
+	}
+
+	proxyURL := url.URL{
+		Scheme: "http",
+		Host:   addr,
+		Path:   targetURL.Path,
+	}
+	p.log.Info("started proxy", slog.String("url", proxyURL.String()), slog.String("target", p.target))
 
 	// Read lines from stdin.
 	scanner := bufio.NewScanner(os.Stdin)
@@ -128,7 +137,7 @@ func (p *Push) PushFromStdin() error {
 	// Push store paths comprehensively.
 	for _, path := range storePaths {
 		p.log.Info("pushing store path comprehensively", slog.String("path", path))
-		if err := p.pushComprehensive(proxyURL, path); err != nil {
+		if err := p.pushComprehensive(proxyURL.String(), path); err != nil {
 			return fmt.Errorf("failed to push store path %s: %w", path, err)
 		}
 	}
@@ -136,7 +145,7 @@ func (p *Push) PushFromStdin() error {
 	// Push flake references comprehensively.
 	for _, flakeRef := range flakeRefs {
 		p.log.Info("pushing flake reference comprehensively", slog.String("ref", flakeRef))
-		if err := p.pushFlakeComprehensive(proxyURL, flakeRef); err != nil {
+		if err := p.pushFlakeComprehensive(proxyURL.String(), flakeRef); err != nil {
 			return fmt.Errorf("failed to push flake reference %s: %w", flakeRef, err)
 		}
 	}
