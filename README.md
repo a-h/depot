@@ -1,6 +1,6 @@
 # github.com/a-h/depot
 
-Storage for Nix, NPM, and Python packages.
+Storage for Go, Nix, NPM, and Python packages.
 
 ## Features
 
@@ -98,6 +98,55 @@ Or push using `nix copy` - see `push-without-tools` for complete push examples.
 
 ```bash
 nix copy --to https://my-cache.example.com nixpkgs#sl
+```
+
+## Go usage
+
+### 1. Save Go modules
+
+```bash
+# Save specific modules.
+depot go save golang.org/x/text@v0.21.0 rsc.io/quote@v1.5.2
+
+# Save all dependencies from a go.mod file.
+depot go save ./go.mod
+```
+
+This saves modules and their transitive dependencies to `.depot-storage/go`. Each module's `.info`, `.mod`, and `.zip` files are fetched from `proxy.golang.org`.
+
+### 2. Push Go modules to depot
+
+```bash
+depot go push http://localhost:8080
+```
+
+### 3. Configure the Go toolchain
+
+```bash
+# Point GOPROXY at your depot server.
+export GOPROXY=http://localhost:8080/go,direct
+export GONOSUMCHECK='*'
+export GONOSUMDB='*'
+
+# Or configure persistently.
+go env -w GOPROXY=http://localhost:8080/go,direct
+go env -w GONOSUMCHECK='*'
+go env -w GONOSUMDB='*'
+```
+
+In an air-gapped environment, omit `,direct` so that Go does not attempt to fall back to direct fetching:
+
+```bash
+export GOPROXY=http://localhost:8080/go
+```
+
+`GONOSUMCHECK` and `GONOSUMDB` disable checksum database lookups, which are unreachable in an air-gapped environment.
+
+Then use Go as normal:
+
+```bash
+go mod download
+go build ./...
 ```
 
 ## NPM usage
@@ -350,10 +399,14 @@ nix copy --to http://localhost:8080 `nix eval github:NixOS/nixpkgs/8cd5ce828d5d1
 
 ### push-sample-packages
 
-Push a couple of NPM packages, Python packages, and Nix packages.
+Push a couple of Go modules, NPM packages, Python packages, and Nix packages.
 
 ```bash
 export DEPOT_URL=http://localhost:8080
+
+# Save and push Go modules.
+go run ./cmd/depot go save rsc.io/quote@v1.5.2
+go run ./cmd/depot go push $DEPOT_URL
 
 # Save and push NPM packages.
 go run ./cmd/depot npm save express lodash
@@ -370,16 +423,20 @@ go run ./cmd/depot nix push $DEPOT_URL --flake-refs nixpkgs#jq
 
 ### download-sample-packages
 
-Download a couple of NPM packages, Python packages, and Nix packages from depot.
+Download a couple of Go modules, NPM packages, Python packages, and Nix packages from depot.
 
 ```bash
 export DEPOT_URL=http://localhost:8080
+export DEPOT_GO_URL=$DEPOT_URL/go
 export DEPOT_NPM_URL=$DEPOT_URL/npm
 export DEPOT_PYTHON_URL=$DEPOT_URL/python/simple/
 export DEPOT_NIX_URL=$DEPOT_URL/nix
 export DOWNLOAD_DIR=$(mktemp -d)
 
 echo "Downloading artifacts to $DOWNLOAD_DIR"
+
+# Download Go modules from depot.
+GOPROXY=$DEPOT_GO_URL GONOSUMCHECK='*' GONOSUMDB='*' go mod download rsc.io/quote@v1.5.2
 
 # Download NPM packages from depot.
 npm pack --registry $DEPOT_NPM_URL --pack-destination $DOWNLOAD_DIR express lodash

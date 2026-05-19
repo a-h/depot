@@ -13,6 +13,8 @@ import (
 	"github.com/a-h/depot/accesslog"
 	"github.com/a-h/depot/auth"
 	"github.com/a-h/depot/cmd/globals"
+	gocmd "github.com/a-h/depot/gomod/cmd"
+	gomoddb "github.com/a-h/depot/gomod/db"
 	"github.com/a-h/depot/loggedstorage"
 	"github.com/a-h/depot/metrics"
 	depotmetrics "github.com/a-h/depot/metrics"
@@ -36,6 +38,7 @@ type CLI struct {
 	Version VersionCmd          `cmd:"" help:"Show version information"`
 	Serve   ServeCmd            `cmd:"" help:"Start the depot server"`
 	Proxy   ProxyCmd            `cmd:"" help:"Proxy requests to a remote depot with authentication"`
+	Go      gocmd.GoCmd         `cmd:"go" help:"Go module management commands"`
 	Nix     nixcmd.NixCmd       `cmd:"" help:"Nix package management commands"`
 	NPM     npmcmd.NPMCmd       `cmd:"" help:"NPM package management commands"`
 	Python  pythoncmd.PythonCmd `cmd:"" help:"Python package management commands"`
@@ -150,20 +153,29 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 	// Create logged storage to track usage metrics.
 	al := accesslog.New(store)
 	sctx := context.Background()
+	goStorage, goStorageShutdown, goStorageErr := cmd.createStorage(sctx, log, "go", al, metrics)
 	nixStorage, nixStorageShutdown, nixStorageErr := cmd.createStorage(sctx, log, "nix", al, metrics)
 	npmStorage, npmStorageShutdown, npmStorageErr := cmd.createStorage(sctx, log, "npm", al, metrics)
 	pythonStorage, pythonStorageShutdown, pythonStorageErr := cmd.createStorage(sctx, log, "python", al, metrics)
-	if err = errors.Join(nixStorageErr, npmStorageErr, pythonStorageErr); err != nil {
+	if err = errors.Join(goStorageErr, nixStorageErr, npmStorageErr, pythonStorageErr); err != nil {
 		return err
 	}
 
+	cfg := routes.HandlerConfig{
+		GoMod:  routes.PackageHandlerConfig[*gomoddb.DB]{DB: gomoddb.New(store), Storage: goStorage},
+		Nix:    routes.NixHandlerConfig{DB: nixdb.New(store), Storage: nixStorage, PrivateKey: privateKey},
+		NPM:    routes.PackageHandlerConfig[*npmdb.DB]{DB: npmdb.New(store), Storage: npmStorage},
+		Python: routes.PythonHandlerConfig{DB: pythondb.New(store), Storage: pythonStorage, BaseURL: "http://localhost:8080/python"},
+	}
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: routes.New(log, nixdb.New(store), nixStorage, npmdb.New(store), npmStorage, pythondb.New(store), pythonStorage, authConfig, privateKey, metrics),
+		Handler: routes.New(log, cfg, authConfig, metrics),
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("metricsAddr", cmd.MetricsListenAddr), slog.String("storePath", cmd.StorePath))
 	err = s.ListenAndServe()
 	log.Debug("server exited", slog.String("error", err.Error()))
+	log.Debug("waiting 30s for go storage to finish processing events")
+	goStorageShutdown(30 * time.Second)
 	log.Debug("waiting 30s for nix storage to finish processing events")
 	nixStorageShutdown(30 * time.Second)
 	log.Debug("waiting 30s for npm storage to finish processing events")
@@ -223,7 +235,7 @@ func main() {
 
 	ctx := kong.Parse(&cli,
 		kong.Name("depot"),
-		kong.Description("Serve Nix, NPM, and Python packages"),
+		kong.Description("Serve Go, Nix, NPM, and Python packages"),
 		kong.UsageOnError(),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,

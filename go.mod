@@ -24,6 +24,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.40.0
 	go.opentelemetry.io/otel/sdk/metric v1.40.0
 	golang.org/x/crypto v0.42.0
+	golang.org/x/mod v0.30.0
 	zombiezen.com/go/sqlite v1.4.0
 )
 
