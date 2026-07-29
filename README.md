@@ -11,7 +11,7 @@ Storage for Go, Nix, NPM, and Python packages.
 - **Compression support**: Automatic decompression of uploaded NAR files
 - **NAR processing**: Uses go-nix library for proper NAR file parsing and extraction
 - **Logging**: Structured JSON logging with configurable verbosity
-- **Storage backends**: Filesystem or S3-compatible storage (AWS S3, MinIO, GCP Cloud Storage)
+- **Storage backends**: Filesystem or S3-compatible storage (AWS S3, SeaweedFS, GCP Cloud Storage)
 - **Kubernetes deployment**: See `./k8s` for example Kubernetes manifests.
 
 ## Nix usage
@@ -295,14 +295,14 @@ depot serve \
   --s3-region=us-east-1 \
   --database-url=postgres://user:pass@host/db
 
-# Using MinIO with explicit credentials.
+# Using SeaweedFS with explicit credentials.
 depot serve \
   --storage-type=s3 \
   --s3-bucket=depot \
   --s3-region=us-east-1 \
-  --s3-endpoint=http://localhost:9000 \
-  --s3-access-key-id=minioadmin \
-  --s3-secret-access-key=minioadmin \
+  --s3-endpoint=http://localhost:8333 \
+  --s3-access-key-id=testkey \
+  --s3-secret-access-key=testsecret \
   --s3-force-path-style=true \
   --database-url=sqlite:///tmp/depot.db
 
@@ -318,10 +318,10 @@ S3 configuration options:
 - `--storage-type`: Set to `s3` for S3 storage
 - `--s3-bucket`: S3 bucket name (required)
 - `--s3-region`: AWS region (default: us-east-1)
-- `--s3-endpoint`: Custom endpoint for MinIO/LocalStack
+- `--s3-endpoint`: Custom endpoint for self-hosted S3-compatible storage
 - `--s3-access-key-id`: Access key (uses IAM if not set)
 - `--s3-secret-access-key`: Secret key (uses IAM if not set)
-- `--s3-force-path-style`: Use path-style URLs (required for MinIO)
+- `--s3-force-path-style`: Use path-style URLs (required for SeaweedFS and similar)
 
 ## Tasks
 

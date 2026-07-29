@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     gitignore = {
       url = "github:hercules-ci/gitignore.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -47,7 +47,7 @@
         pname = name;
         version = v;
         src = gitignore.lib.gitignoreSource ./.;
-        vendorHash = "sha256-FNfcuKiuPLbCJ5FkKn19mI7dW2ZlC7rcdPtfVqYhdA0=";
+        vendorHash = "sha256-Slj1kJd0uzEaQUvkamVsc/zHsDEx7AFArISp/ZWNVVk=";
         subPackages = [ "cmd/${name}" ];
         ldflags = [
           "-s"
@@ -102,7 +102,7 @@
         # Used to test the depot system.
         pkgs.nodejs
         pkgs.python3WithPip
-        pkgs.minio
+        pkgs.seaweedfs
       ];
 
       name = "depot";

@@ -138,16 +138,22 @@ func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	defer file.Close()
 
 	bytesWritten, err := io.Copy(file, r.Body)
 	if err != nil {
+		file.Close()
 		h.log.Error("failed to write NAR file", slog.String("hashPart", hashPart), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	h.metrics.IncrementUploadMetrics(r.Context(), "nix", bytesWritten)
 
+	if err := file.Close(); err != nil {
+		h.log.Error("failed to complete upload to storage", slog.String("hashPart", hashPart), slog.Any("error", err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	h.metrics.IncrementUploadMetrics(r.Context(), "nix", bytesWritten)
 	w.WriteHeader(http.StatusCreated)
 }
 

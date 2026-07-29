@@ -190,18 +190,19 @@ func (d *Downloader) fetchMetadata(ctx context.Context, packageName string, upda
 	if err != nil {
 		return m, fmt.Errorf("failed to create metadata file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	// Copy response to the file and JSON decoder.
 	rr := io.TeeReader(resp.Body, f)
-	if err := json.NewDecoder(rr).Decode(&m); err != nil {
-		return m, err
-	}
-
-	return m, nil
+	err = json.NewDecoder(rr).Decode(&m)
+	return m, err
 }
 
-func (d *Downloader) downloadTarball(ctx context.Context, version models.AbbreviatedVersion, overwrite bool) error {
+func (d *Downloader) downloadTarball(ctx context.Context, version models.AbbreviatedVersion, overwrite bool) (err error) {
 	if version.Dist == nil {
 		return fmt.Errorf("no dist information for version %s@%s", version.Name, version.Version)
 	}
@@ -238,7 +239,11 @@ func (d *Downloader) downloadTarball(ctx context.Context, version models.Abbrevi
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	// Download with streaming hash verification and progress reporting.
 	hasher, err := sri.Parse(version.Dist.Integrity)

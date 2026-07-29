@@ -105,6 +105,7 @@ func (s *S3) Get(ctx context.Context, filename string) (r io.ReadCloser, exists 
 func (s *S3) Put(ctx context.Context, filename string) (w io.WriteCloser, err error) {
 	pr, pw := io.Pipe()
 
+	uploadDone := make(chan error, 1)
 	go func() {
 		_, err := s.uploader.UploadObject(ctx, &transfermanager.UploadObjectInput{
 			Bucket: aws.String(s.bucket),
@@ -113,10 +114,33 @@ func (s *S3) Put(ctx context.Context, filename string) (w io.WriteCloser, err er
 		})
 		if err != nil {
 			pr.CloseWithError(fmt.Errorf("failed to upload to S3: %w", err))
-			return
+		} else {
+			pr.Close()
 		}
-		pr.Close()
+		uploadDone <- err
 	}()
 
-	return pw, nil
+	return &pipeWriter{pw: pw, done: uploadDone}, nil
+}
+
+// pipeWriter wraps a PipeWriter so that Close blocks until the background upload
+// goroutine has finished, ensuring callers see upload errors and objects are
+// visible immediately after Close returns.
+type pipeWriter struct {
+	pw   *io.PipeWriter
+	done <-chan error
+}
+
+func (w *pipeWriter) Write(p []byte) (n int, err error) {
+	return w.pw.Write(p)
+}
+
+func (w *pipeWriter) Close() error {
+	if err := w.pw.Close(); err != nil {
+		return err
+	}
+	if err := <-w.done; err != nil {
+		return fmt.Errorf("upload failed: %w", err)
+	}
+	return nil
 }

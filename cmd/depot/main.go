@@ -53,6 +53,53 @@ func (cmd *VersionCmd) Run(globals *globals.Globals) error {
 	return nil
 }
 
+const storePermissionHelp = `Please specify a writable directory using the --store-path flag or DEPOT_STORE_PATH environment variable.
+
+In Docker, mount a host directory and pass it as the store path:
+
+    docker run -v /path/on/host:/store ghcr.io/a-h/depot:latest serve --store-path /store
+
+In Kubernetes, create a PersistentVolumeClaim and a Deployment that mounts it:
+
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: depot-store
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: depot
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: depot
+      template:
+        metadata:
+          labels:
+            app: depot
+        spec:
+          containers:
+          - name: depot
+            image: ghcr.io/a-h/depot:latest
+            env:
+            - name: DEPOT_STORE_PATH
+              value: /depot-store
+            volumeMounts:
+            - name: store
+              mountPath: /depot-store
+          volumes:
+          - name: store
+            persistentVolumeClaim:
+              claimName: depot-store`
+
 type S3Flags struct {
 	Bucket          string `help:"S3 bucket name (required when storage-type=s3)" env:"DEPOT_S3_BUCKET"`
 	Region          string `help:"S3 region" default:"us-east-1" env:"DEPOT_S3_REGION"`
@@ -95,6 +142,9 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 			cmd.StorePath = filepath.Join(home, "depot-store")
 		}
 		if err := os.MkdirAll(cmd.StorePath, 0755); err != nil {
+			if os.IsPermission(err) {
+				return fmt.Errorf("failed to create store directory %q: permission denied.\n\n%s", cmd.StorePath, storePermissionHelp)
+			}
 			return fmt.Errorf("failed to create store directory: %w", err)
 		}
 	default:

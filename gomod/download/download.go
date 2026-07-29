@@ -160,11 +160,12 @@ func (d *Downloader) downloadFile(ctx context.Context, encodedPath, escapedVersi
 	if err != nil {
 		return nil, err
 	}
-	defer w.Close()
+	defer func() {
+		if cerr := w.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	content, err = io.ReadAll(io.TeeReader(resp.Body, w))
-	if err != nil {
-		return nil, err
-	}
-	return content, nil
+	return content, err
 }

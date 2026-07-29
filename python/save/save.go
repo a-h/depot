@@ -130,7 +130,7 @@ func (s *Saver) savePackage(ctx context.Context, line string) error {
 	return nil
 }
 
-func (s *Saver) savePackageFile(ctx context.Context, pkg string, file models.SimpleFileEntry) error {
+func (s *Saver) savePackageFile(ctx context.Context, pkg string, file models.SimpleFileEntry) (err error) {
 	// Check the existing file size.
 	fileName := fmt.Sprintf("%s/%s", pkg, file.Filename)
 	size, exists, err := s.storage.Stat(ctx, fileName)
@@ -147,7 +147,11 @@ func (s *Saver) savePackageFile(ctx context.Context, pkg string, file models.Sim
 	if err != nil {
 		return fmt.Errorf("failed to create storage writer for %s/%s: %w", pkg, file.Filename, err)
 	}
-	defer w.Close()
+	defer func() {
+		if cerr := w.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 	resp, err := s.client.Get(file.URL)
 	if err != nil {
 		return fmt.Errorf("failed to download file %s: %w", file.URL, err)
@@ -167,7 +171,11 @@ func (s *Saver) savePackageFile(ctx context.Context, pkg string, file models.Sim
 	if err != nil {
 		return fmt.Errorf("failed to create storage writer for metadata %s: %w", metadataName, err)
 	}
-	defer metadataWriter.Close()
+	defer func() {
+		if cerr := metadataWriter.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 	encoder := json.NewEncoder(metadataWriter)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(file); err != nil {

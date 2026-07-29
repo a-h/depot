@@ -357,11 +357,17 @@ func (h *archiveHandler) put(w http.ResponseWriter, r *http.Request, info pathIn
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	defer f.Close()
 
 	bytesWritten, err := io.Copy(f, r.Body)
 	if err != nil {
+		f.Close()
 		h.log.Error("failed to write zip to storage", slog.String("key", key), slog.Any("error", err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := f.Close(); err != nil {
+		h.log.Error("failed to complete upload to storage", slog.String("key", key), slog.Any("error", err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -370,7 +376,7 @@ func (h *archiveHandler) put(w http.ResponseWriter, r *http.Request, info pathIn
 	w.WriteHeader(http.StatusOK)
 }
 
-func writeToStorage(ctx context.Context, s storage.Storage, modulePath, resource string, data []byte) error {
+func writeToStorage(ctx context.Context, s storage.Storage, modulePath, resource string, data []byte) (err error) {
 	key, err := storageKey(modulePath, resource)
 	if err != nil {
 		return err
@@ -380,7 +386,11 @@ func writeToStorage(ctx context.Context, s storage.Storage, modulePath, resource
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	_, err = f.Write(data)
 	return err

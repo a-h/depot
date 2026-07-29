@@ -3,11 +3,13 @@ package storage
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -25,11 +27,11 @@ func TestS3Storage(t *testing.T) {
 	ctx := context.Background()
 	accessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
 	if accessKeyID == "" {
-		accessKeyID = "minioadmin"
+		accessKeyID = "testkey"
 	}
 	secretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
 	if secretAccessKey == "" {
-		secretAccessKey = "minioadmin123"
+		secretAccessKey = "testsecret"
 	}
 	region := os.Getenv("AWS_REGION")
 	if region == "" {
@@ -39,7 +41,7 @@ func TestS3Storage(t *testing.T) {
 	endpoint := os.Getenv("AWS_ENDPOINT_URL")
 	if endpoint == "" {
 		var err error
-		endpoint, err = startMinIO(ctx, t, accessKeyID, secretAccessKey)
+		endpoint, err = startSeaweedFS(ctx, t, accessKeyID, secretAccessKey)
 		if err != nil {
 			t.Skipf("skipping integration test: %v", err)
 		}
@@ -250,33 +252,66 @@ func waitForS3(ctx context.Context, client *s3.Client) error {
 	}
 }
 
-func startMinIO(ctx context.Context, t *testing.T, accessKeyID, secretAccessKey string) (endpoint string, err error) {
+func startSeaweedFS(ctx context.Context, t *testing.T, accessKeyID, secretAccessKey string) (endpoint string, err error) {
 	t.Helper()
 
-	minioCommand, err := getMinIOCommand()
+	weedCmd, err := getSeaweedFSCommand()
 	if err != nil {
 		return "", err
 	}
 
-	// Find an available port.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	ports, err := findFreePorts(4)
 	if err != nil {
 		return "", err
 	}
-	addr := listener.Addr().String()
-	listener.Close()
+	masterPort, volumePort, filerPort, s3Port := ports[0], ports[1], ports[2], ports[3]
+
+	type s3Credential struct {
+		AccessKey string `json:"accessKey"`
+		SecretKey string `json:"secretKey"`
+	}
+	type s3Identity struct {
+		Name        string         `json:"name"`
+		Credentials []s3Credential `json:"credentials"`
+		Actions     []string       `json:"actions"`
+	}
+	type s3ConfigFile struct {
+		Identities []s3Identity `json:"identities"`
+	}
 
 	dataDir := t.TempDir()
-	minioCtx, minioCancel := context.WithCancel(ctx)
+	configPath := filepath.Join(dataDir, "s3.json")
+	s3Config, err := json.Marshal(s3ConfigFile{
+		Identities: []s3Identity{
+			{
+				Name:        "test",
+				Credentials: []s3Credential{{AccessKey: accessKeyID, SecretKey: secretAccessKey}},
+				Actions:     []string{"Read", "Write", "List", "Tagging", "Admin"},
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal S3 config: %w", err)
+	}
+	if err := os.WriteFile(configPath, s3Config, 0600); err != nil {
+		return "", fmt.Errorf("failed to write S3 config: %w", err)
+	}
+
+	weedCtx, weedCancel := context.WithCancel(ctx)
 	defer func() {
 		if err != nil {
-			minioCancel()
+			weedCancel()
 		}
 	}()
-	cmd := minioCommand(minioCtx, "server", "--address", addr, dataDir)
-	cmd.Env = append(os.Environ(),
-		"MINIO_ROOT_USER="+accessKeyID,
-		"MINIO_ROOT_PASSWORD="+secretAccessKey,
+	cmd := weedCmd(weedCtx, "server",
+		"-dir="+dataDir,
+		fmt.Sprintf("-master.port=%d", masterPort),
+		fmt.Sprintf("-volume.port=%d", volumePort),
+		"-filer",
+		fmt.Sprintf("-filer.port=%d", filerPort),
+		"-s3",
+		fmt.Sprintf("-s3.port=%d", s3Port),
+		"-s3.config="+configPath,
 	)
 	output := &bytes.Buffer{}
 	cmd.Stdout = output
@@ -285,16 +320,15 @@ func startMinIO(ctx context.Context, t *testing.T, accessKeyID, secretAccessKey 
 	if err := cmd.Start(); err != nil {
 		return "", err
 	}
-
 	t.Cleanup(func() {
-		minioCancel()
+		weedCancel()
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
 		}
 		_ = cmd.Wait()
 	})
 
-	endpoint = "http://" + addr
+	endpoint = fmt.Sprintf("http://127.0.0.1:%d", s3Port)
 	awsCfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion("us-east-1"),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, "")),
@@ -302,27 +336,46 @@ func startMinIO(ctx context.Context, t *testing.T, accessKeyID, secretAccessKey 
 	if err != nil {
 		return "", err
 	}
-
 	s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(endpoint)
 		o.UsePathStyle = true
 	})
 	if err := waitForS3(ctx, s3Client); err != nil {
-		return "", fmt.Errorf("failed to start minio: %w: %s", err, bytes.TrimSpace(output.Bytes()))
+		return "", fmt.Errorf("failed to start seaweedfs: %w: %s", err, bytes.TrimSpace(output.Bytes()))
 	}
 
 	return endpoint, nil
 }
 
-func getMinIOCommand() (func(ctx context.Context, args ...string) *exec.Cmd, error) {
-	if minioPath, err := exec.LookPath("minio"); err == nil {
+func findFreePorts(n int) ([]int, error) {
+	listeners := make([]net.Listener, n)
+	for i := range n {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			for _, open := range listeners[:i] {
+				open.Close()
+			}
+			return nil, err
+		}
+		listeners[i] = l
+	}
+	ports := make([]int, n)
+	for i, l := range listeners {
+		ports[i] = l.Addr().(*net.TCPAddr).Port
+		l.Close()
+	}
+	return ports, nil
+}
+
+func getSeaweedFSCommand() (func(ctx context.Context, args ...string) *exec.Cmd, error) {
+	if weedPath, err := exec.LookPath("weed"); err == nil {
 		return func(ctx context.Context, args ...string) *exec.Cmd {
-			return exec.CommandContext(ctx, minioPath, args...)
+			return exec.CommandContext(ctx, weedPath, args...)
 		}, nil
 	}
 	if _, err := exec.LookPath("nix"); err == nil {
 		return func(ctx context.Context, args ...string) *exec.Cmd {
-			nixArgs := append([]string{"run", "nixpkgs#minio", "--"}, args...)
+			nixArgs := append([]string{"run", "nixpkgs#seaweedfs", "--"}, args...)
 			return exec.CommandContext(ctx, "nix", nixArgs...)
 		}, nil
 	}
