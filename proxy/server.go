@@ -23,7 +23,7 @@ type Server struct {
 }
 
 // NewServer creates a new proxy server that forwards requests to the target URL.
-func NewServer(log *slog.Logger, targetURL string) (*Server, error) {
+func NewServer(log *slog.Logger, targetURL string, transport http.RoundTripper) (*Server, error) {
 	target, err := url.Parse(targetURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid target URL: %w", err)
@@ -36,6 +36,7 @@ func NewServer(log *slog.Logger, targetURL string) (*Server, error) {
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = transport
 
 	s := &Server{
 		log:      log,
@@ -68,13 +69,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // StartProxy starts a proxy server on a random port and returns the address.
-func StartProxy(log *slog.Logger, targetURL string) (string, func(), error) {
-	return StartProxyOnPort(log, targetURL, 0)
+func StartProxy(log *slog.Logger, targetURL string, transport http.RoundTripper) (string, func(), error) {
+	return StartProxyOnPort(log, targetURL, transport, 0)
 }
 
 // StartProxyOnPort starts a proxy server on the specified port and returns the address.
-func StartProxyOnPort(log *slog.Logger, targetURL string, port int) (string, func(), error) {
-	server, err := NewServer(log, targetURL)
+func StartProxyOnPort(log *slog.Logger, targetURL string, transport http.RoundTripper, port int) (string, func(), error) {
+	server, err := NewServer(log, targetURL, transport)
 	if err != nil {
 		return "", nil, err
 	}

@@ -27,7 +27,7 @@ func (cmd *NixPushCmd) Run(globals *globals.Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	pusher := push.New(log, cmd.Target)
+	pusher := push.New(log, cmd.Target, globals.NewRoundTripper())
 
 	if cmd.Stdin {
 		return pusher.PushFromStdin()

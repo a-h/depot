@@ -55,7 +55,7 @@ func TestPushSendsFilesInCorrectOrder(t *testing.T) {
 	defer ts.Close()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	p := New(log, ts.URL)
+	p := New(log, ts.URL, http.DefaultClient)
 	p.SetAuthToken("test-token")
 
 	if err := p.Push(context.Background(), dir); err != nil {
@@ -100,7 +100,7 @@ func TestPushSendsFilesInCorrectOrder(t *testing.T) {
 func TestPushReturnsErrorForEmptyDirectory(t *testing.T) {
 	dir := t.TempDir()
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	p := New(log, "http://localhost:9999")
+	p := New(log, "http://localhost:9999", http.DefaultClient)
 
 	err := p.Push(context.Background(), dir)
 	if err == nil {
@@ -142,7 +142,7 @@ func TestPushWalksNestedDirectories(t *testing.T) {
 	defer ts.Close()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	p := New(log, ts.URL)
+	p := New(log, ts.URL, http.DefaultClient)
 
 	if err := p.Push(context.Background(), dir); err != nil {
 		t.Fatalf("unexpected error: %v", err)

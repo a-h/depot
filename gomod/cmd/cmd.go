@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -32,7 +31,8 @@ func (cmd *Save) Run(globals *globals.Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	ctx := context.Background()
+	ctx, stop := globals.NewContext()
+	defer stop()
 	s := storage.NewFileSystem(cmd.Dir)
 	saver := save.New(log, s)
 	return saver.Save(ctx, cmd.Modules)
@@ -57,9 +57,11 @@ func (cmd *Push) Run(globals *globals.Globals) error {
 		return fmt.Errorf("target URL is required")
 	}
 
-	pusher := gopush.New(log, cmd.Target)
+	ctx, stop := globals.NewContext()
+	defer stop()
+	pusher := gopush.New(log, cmd.Target, globals.NewHTTPClient())
 	if cmd.Token != "" {
 		pusher.SetAuthToken(cmd.Token)
 	}
-	return pusher.Push(context.Background(), cmd.Dir)
+	return pusher.Push(ctx, cmd.Dir)
 }

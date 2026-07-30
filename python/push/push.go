@@ -9,15 +9,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 )
 
-func New(log *slog.Logger, target string) *Pusher {
+func New(log *slog.Logger, target string, client *http.Client) *Pusher {
 	return &Pusher{
-		log: log,
-		client: &http.Client{
-			Timeout: time.Hour,
-		},
+		log:    log,
+		client: client,
 		target: strings.TrimSuffix(target, "/"),
 	}
 }

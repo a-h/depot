@@ -98,7 +98,7 @@ func TestEndToEnd(t *testing.T) {
 	t.Logf("depot server listening at %s", server.URL)
 
 	// Step 3: Push saved modules to the depot server.
-	pusher := push.New(log, server.URL)
+	pusher := push.New(log, server.URL, http.DefaultClient)
 	if err := pusher.Push(ctx, saveDir); err != nil {
 		t.Fatalf("failed to push modules: %v", err)
 	}

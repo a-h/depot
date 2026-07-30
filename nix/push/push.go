@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -14,15 +15,17 @@ import (
 
 // Push handles pushing store paths and flake references to a cache via proxy.
 type Push struct {
-	log    *slog.Logger
-	target string
+	log       *slog.Logger
+	target    string
+	transport http.RoundTripper
 }
 
 // New creates a new Push instance.
-func New(log *slog.Logger, target string) *Push {
+func New(log *slog.Logger, target string, transport http.RoundTripper) *Push {
 	return &Push{
-		log:    log,
-		target: target,
+		log:       log,
+		target:    target,
+		transport: transport,
 	}
 }
 
@@ -33,7 +36,7 @@ func (p *Push) PushStorePaths(paths []string) error {
 	}
 
 	// Start proxy server.
-	addr, cleanup, err := proxy.StartProxy(p.log, p.target)
+	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
 	}
@@ -64,7 +67,7 @@ func (p *Push) PushStorePaths(paths []string) error {
 // PushFlakeReference pushes a flake reference to the cache with comprehensive dependencies.
 func (p *Push) PushFlakeReference(flakeRef string) error {
 	// Start proxy server.
-	addr, cleanup, err := proxy.StartProxy(p.log, p.target)
+	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
 	}
@@ -89,7 +92,7 @@ func (p *Push) PushFlakeReference(flakeRef string) error {
 // PushFromStdin reads store paths and flake references from stdin and pushes them.
 func (p *Push) PushFromStdin() error {
 	// Start proxy server.
-	addr, cleanup, err := proxy.StartProxy(p.log, p.target)
+	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
 	}
@@ -217,9 +220,9 @@ func (p *Push) pushFlakeComprehensive(proxyURL, flakeRef string) error {
 }
 
 // RunProxy runs a proxy command with simple logging.
-func RunProxy(log *slog.Logger, target string, port int) error {
+func RunProxy(log *slog.Logger, target string, port int, transport http.RoundTripper) error {
 	// Start proxy on the specified port.
-	proxyAddr, cleanup, err := proxy.StartProxyOnPort(log, target, port)
+	proxyAddr, cleanup, err := proxy.StartProxyOnPort(log, target, transport, port)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
 	}

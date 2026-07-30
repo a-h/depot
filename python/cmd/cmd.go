@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"log/slog"
 	"os"
 
@@ -29,7 +28,8 @@ func (cmd *Save) Run(globals *globals.Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	ctx := context.Background()
+	ctx, stop := globals.NewContext()
+	defer stop()
 	storage := storage.NewFileSystem(cmd.Dir)
 	saver := save.New(log, storage)
 
@@ -58,10 +58,12 @@ func (cmd *Push) Run(globals *globals.Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	pusher := pythonpush.New(log, cmd.Target)
+	ctx, stop := globals.NewContext()
+	defer stop()
+	pusher := pythonpush.New(log, cmd.Target, globals.NewHTTPClient())
 	if cmd.Token != "" {
 		pusher.SetAuthToken(cmd.Token)
 	}
 
-	return pusher.Push(context.Background(), cmd.Dir)
+	return pusher.Push(ctx, cmd.Dir)
 }

@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/a-h/depot/npm/models"
 )
@@ -25,10 +24,10 @@ type Pusher struct {
 }
 
 // New creates a new Push instance.
-func New(log *slog.Logger, target string) *Pusher {
+func New(log *slog.Logger, target string, client *http.Client) *Pusher {
 	return &Pusher{
 		log:    log,
-		client: &http.Client{Timeout: 60 * time.Second},
+		client: client,
 		target: strings.TrimSuffix(target, "/"),
 	}
 }
