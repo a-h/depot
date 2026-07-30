@@ -2,6 +2,7 @@ package push
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -30,12 +31,11 @@ func New(log *slog.Logger, target string, transport http.RoundTripper) *Push {
 }
 
 // PushStorePaths pushes individual store paths to the cache with comprehensive dependencies.
-func (p *Push) PushStorePaths(paths []string) error {
+func (p *Push) PushStorePaths(ctx context.Context, paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
 
-	// Start proxy server.
 	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
@@ -54,9 +54,8 @@ func (p *Push) PushStorePaths(paths []string) error {
 	}
 	p.log.Info("started proxy", slog.String("url", proxyURL.String()), slog.String("target", p.target))
 
-	// For each store path, do a comprehensive push.
 	for _, path := range paths {
-		if err := p.pushComprehensive(proxyURL.String(), path); err != nil {
+		if err := p.pushComprehensive(ctx, proxyURL.String(), path); err != nil {
 			return fmt.Errorf("failed to comprehensively push %s: %w", path, err)
 		}
 	}
@@ -65,8 +64,7 @@ func (p *Push) PushStorePaths(paths []string) error {
 }
 
 // PushFlakeReference pushes a flake reference to the cache with comprehensive dependencies.
-func (p *Push) PushFlakeReference(flakeRef string) error {
-	// Start proxy server.
+func (p *Push) PushFlakeReference(ctx context.Context, flakeRef string) error {
 	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
@@ -85,13 +83,11 @@ func (p *Push) PushFlakeReference(flakeRef string) error {
 	}
 	p.log.Info("started proxy", slog.String("url", proxyURL.String()), slog.String("target", p.target))
 
-	// Do comprehensive push for the flake reference.
-	return p.pushFlakeComprehensive(proxyURL.String(), flakeRef)
+	return p.pushFlakeComprehensive(ctx, proxyURL.String(), flakeRef)
 }
 
 // PushFromStdin reads store paths and flake references from stdin and pushes them.
-func (p *Push) PushFromStdin() error {
-	// Start proxy server.
+func (p *Push) PushFromStdin(ctx context.Context) error {
 	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
@@ -110,12 +106,14 @@ func (p *Push) PushFromStdin() error {
 	}
 	p.log.Info("started proxy", slog.String("url", proxyURL.String()), slog.String("target", p.target))
 
-	// Read lines from stdin.
 	scanner := bufio.NewScanner(os.Stdin)
 	var storePaths []string
 	var flakeRefs []string
 
 	for scanner.Scan() {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
@@ -137,18 +135,16 @@ func (p *Push) PushFromStdin() error {
 		return fmt.Errorf("error reading from stdin: %w", err)
 	}
 
-	// Push store paths comprehensively.
 	for _, path := range storePaths {
 		p.log.Info("pushing store path comprehensively", slog.String("path", path))
-		if err := p.pushComprehensive(proxyURL.String(), path); err != nil {
+		if err := p.pushComprehensive(ctx, proxyURL.String(), path); err != nil {
 			return fmt.Errorf("failed to push store path %s: %w", path, err)
 		}
 	}
 
-	// Push flake references comprehensively.
 	for _, flakeRef := range flakeRefs {
 		p.log.Info("pushing flake reference comprehensively", slog.String("ref", flakeRef))
-		if err := p.pushFlakeComprehensive(proxyURL.String(), flakeRef); err != nil {
+		if err := p.pushFlakeComprehensive(ctx, proxyURL.String(), flakeRef); err != nil {
 			return fmt.Errorf("failed to push flake reference %s: %w", flakeRef, err)
 		}
 	}
@@ -156,43 +152,35 @@ func (p *Push) PushFromStdin() error {
 	return nil
 }
 
-// pushComprehensive does a comprehensive push of a store path including all dependencies.
-func (p *Push) pushComprehensive(proxyURL, storePath string) error {
+func (p *Push) pushComprehensive(ctx context.Context, proxyURL, storePath string) error {
 	p.log.Info("getting derivation info", slog.String("path", storePath))
 
 	// Get input derivations and sources for the store path.
-	inputDerivations, inputSrcs, err := nixcmd.DerivationShow(os.Stdout, os.Stderr, ".", storePath)
+	inputDerivations, inputSrcs, err := nixcmd.DerivationShow(ctx, os.Stdout, os.Stderr, ".", storePath)
 	if err != nil {
 		return fmt.Errorf("failed to get derivation info for %s: %w", storePath, err)
 	}
 
-	// Combine all inputs.
 	allInputs := append(inputSrcs, inputDerivations...)
-
-	// Start with the main store path.
 	allPaths := []string{storePath}
 
 	if len(allInputs) > 0 {
 		p.log.Info("realising input dependencies", slog.Int("count", len(allInputs)))
 
-		// Realise all input derivations.
-		realisedPaths, err := nixcmd.RealiseStorePaths(os.Stdout, os.Stderr, allInputs...)
+		realisedPaths, err := nixcmd.RealiseStorePaths(ctx, os.Stdout, os.Stderr, allInputs...)
 		if err != nil {
 			return fmt.Errorf("failed to realise input derivations: %w", err)
 		}
 
-		// Add realised dependencies to the paths to copy.
 		allPaths = append(allPaths, realisedPaths...)
 	}
 
 	p.log.Info("copying all paths", slog.Int("count", len(allPaths)))
 
-	// Copy all paths in one operation.
-	return nixcmd.CopyTo(os.Stdout, os.Stderr, ".", proxyURL, false, allPaths...)
+	return nixcmd.CopyTo(ctx, os.Stdout, os.Stderr, ".", proxyURL, false, allPaths...)
 }
 
-// pushFlakeComprehensive does a comprehensive push of a flake reference including the package and all dependencies.
-func (p *Push) pushFlakeComprehensive(proxyURL, flakeRef string) error {
+func (p *Push) pushFlakeComprehensive(ctx context.Context, proxyURL, flakeRef string) error {
 	p.log.Info("evaluating flake reference", slog.String("ref", flakeRef))
 
 	// Split flake reference into base flake and attribute.
@@ -202,26 +190,23 @@ func (p *Push) pushFlakeComprehensive(proxyURL, flakeRef string) error {
 		baseFlake = before
 	}
 
-	// First, archive the flake source.
-	if err := nixcmd.FlakeArchive(os.Stdout, os.Stderr, proxyURL, baseFlake); err != nil {
+	// Archive the flake source.
+	if err := nixcmd.FlakeArchive(ctx, os.Stdout, os.Stderr, proxyURL, baseFlake); err != nil {
 		return fmt.Errorf("failed to archive flake: %w", err)
 	}
 
-	// Evaluate the flake reference to get the store path.
-	storePath, err := nixcmd.Eval(os.Stdout, os.Stderr, flakeRef)
+	storePath, err := nixcmd.Eval(ctx, os.Stdout, os.Stderr, flakeRef)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate flake reference: %w", err)
 	}
 
 	p.log.Info("flake reference evaluated", slog.String("ref", flakeRef), slog.String("path", storePath))
 
-	// Now do comprehensive push of the evaluated store path.
-	return p.pushComprehensive(proxyURL, storePath)
+	return p.pushComprehensive(ctx, proxyURL, storePath)
 }
 
-// RunProxy runs a proxy command with simple logging.
-func RunProxy(log *slog.Logger, target string, port int, transport http.RoundTripper) error {
-	// Start proxy on the specified port.
+// RunProxy runs a proxy command with simple logging, blocking until ctx is cancelled.
+func RunProxy(ctx context.Context, log *slog.Logger, target string, port int, transport http.RoundTripper) error {
 	proxyAddr, cleanup, err := proxy.StartProxyOnPort(log, target, transport, port)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
@@ -231,6 +216,6 @@ func RunProxy(log *slog.Logger, target string, port int, transport http.RoundTri
 	log.Info("proxy running", slog.String("addr", proxyAddr), slog.String("target", target))
 	log.Info("press Ctrl+C to stop")
 
-	// Keep the proxy running until interrupted.
-	select {}
+	<-ctx.Done()
+	return nil
 }

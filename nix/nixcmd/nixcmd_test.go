@@ -13,39 +13,34 @@ func TestGetInputDrvsReturnsOnlyNixStorePaths(t *testing.T) {
 		wantError bool
 	}{
 		{
-			name: "basename store paths are normalised and non-store paths are excluded",
+			name: "basename paths are normalised and non-store paths are excluded",
 			json: `{
-				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-example.drv": {
-					"inputDrvs": {
-						"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-foo.drv": [],
-						"/private/tmp/local-builder.sh": []
-					},
-					"inputSrcs": [
-						"cccccccccccccccccccccccccccccccc-source",
-						"/Users/adrian/work/default-builder.sh"
-					]
+				"version": 4,
+				"derivations": {
+					"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-example.drv": {
+						"inputs": {
+							"drvs": {
+								"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-foo.drv": {"outputs": ["out"], "dynamicOutputs": {}},
+								"/private/tmp/local-builder.sh": {"outputs": [], "dynamicOutputs": {}}
+							},
+							"srcs": [
+								"cccccccccccccccccccccccccccccccc-source",
+								"/Users/adrian/work/default-builder.sh"
+							]
+						}
+					}
 				}
 			}`,
 			wantDrvs: []string{"/nix/store/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-foo.drv"},
 			wantSrcs: []string{"/nix/store/cccccccccccccccccccccccccccccccc-source"},
 		},
 		{
-			name: "absolute store paths are preserved",
-			json: `{
-				"/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-example.drv": {
-					"inputDrvs": {
-						"/nix/store/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-foo.drv": []
-					},
-					"inputSrcs": [
-						"/nix/store/cccccccccccccccccccccccccccccccc-source"
-					]
-				}
-			}`,
-			wantDrvs: []string{"/nix/store/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-foo.drv"},
-			wantSrcs: []string{"/nix/store/cccccccccccccccccccccccccccccccc-source"},
+			name:      "unsupported version returns an error",
+			json:      `{"version": 3, "derivations": {}}`,
+			wantError: true,
 		},
 		{
-			name:      "invalid json returns error",
+			name:      "invalid json returns an error",
 			json:      `not-json`,
 			wantError: true,
 		},

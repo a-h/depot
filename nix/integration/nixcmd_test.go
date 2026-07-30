@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -40,7 +41,7 @@ func ErrorBuffer(stdout, stderr io.Writer) (io.Writer, func(error) error) {
 }
 
 // CopyTo copies Nix store paths to a target store.
-func CopyTo(stdout, stderr io.Writer, codeDir, targetStore string, derivation bool, paths ...string) (err error) {
+func CopyTo(ctx context.Context, stdout, stderr io.Writer, codeDir, targetStore string, derivation bool, paths ...string) (err error) {
 	nixPath, err := exec.LookPath("nix")
 	if err != nil {
 		return fmt.Errorf("failed to find nix on path: %v", err)
@@ -51,7 +52,7 @@ func CopyTo(stdout, stderr io.Writer, codeDir, targetStore string, derivation bo
 		args = append(args, "--derivation")
 	}
 	args = append(args, paths...)
-	cmd := exec.Command(nixPath, args...)
+	cmd := exec.CommandContext(ctx, nixPath, args...)
 	cmd.Dir = codeDir
 
 	w, closer := ErrorBuffer(stdout, stderr)
@@ -61,7 +62,7 @@ func CopyTo(stdout, stderr io.Writer, codeDir, targetStore string, derivation bo
 }
 
 // FlakeArchive archives a flake to a target store.
-func FlakeArchive(stdout, stderr io.Writer, targetStore, flakeRef string) error {
+func FlakeArchive(ctx context.Context, stdout, stderr io.Writer, targetStore, flakeRef string) error {
 	nixPath, err := exec.LookPath("nix")
 	if err != nil {
 		return fmt.Errorf("failed to find nix on path: %v", err)
@@ -69,7 +70,7 @@ func FlakeArchive(stdout, stderr io.Writer, targetStore, flakeRef string) error 
 
 	// Inside the Docker container, the export is hard coded to /nix-export/nix-store/
 	// So, the targetStore would be file:///nix-export/nix-store/
-	cmd := exec.Command(nixPath, "flake", "archive", "--to", targetStore, "--refresh", flakeRef)
+	cmd := exec.CommandContext(ctx, nixPath, "flake", "archive", "--to", targetStore, "--refresh", flakeRef)
 
 	w, closer := ErrorBuffer(stdout, stderr)
 	cmd.Stderr = w
@@ -78,7 +79,7 @@ func FlakeArchive(stdout, stderr io.Writer, targetStore, flakeRef string) error 
 }
 
 // CopyFrom copies store paths from a source store to the local store.
-func CopyFrom(stdout, stderr io.Writer, toStore, fromStore string, paths ...string) error {
+func CopyFrom(ctx context.Context, stdout, stderr io.Writer, toStore, fromStore string, paths ...string) error {
 	if len(paths) == 0 {
 		return nil
 	}
@@ -91,7 +92,7 @@ func CopyFrom(stdout, stderr io.Writer, toStore, fromStore string, paths ...stri
 	args := []string{"copy", "--from", fromStore, "--to", toStore}
 	args = append(args, paths...)
 
-	cmd := exec.Command(nixPath, args...)
+	cmd := exec.CommandContext(ctx, nixPath, args...)
 	cmd.Env = getEnv()
 
 	w, closer := ErrorBuffer(stdout, stderr)
@@ -102,13 +103,13 @@ func CopyFrom(stdout, stderr io.Writer, toStore, fromStore string, paths ...stri
 }
 
 // Eval evaluates a Nix expression and returns the store path.
-func Eval(stdout, stderr io.Writer, expr string) (string, error) {
+func Eval(ctx context.Context, stdout, stderr io.Writer, expr string) (string, error) {
 	nixPath, err := exec.LookPath("nix")
 	if err != nil {
 		return "", fmt.Errorf("failed to find nix on path: %w", err)
 	}
 
-	cmd := exec.Command(nixPath, "eval", expr, "--raw")
+	cmd := exec.CommandContext(ctx, nixPath, "eval", expr, "--raw")
 	cmd.Env = getEnv()
 
 	w, closer := ErrorBuffer(stdout, stderr)
@@ -123,7 +124,7 @@ func Eval(stdout, stderr io.Writer, expr string) (string, error) {
 }
 
 // DerivationShow runs `nix derivation show` on a given derivation reference.
-func DerivationShow(stdout, stderr io.Writer, codeDir, ref string) (inputDrvs []string, srcs []string, err error) {
+func DerivationShow(ctx context.Context, stdout, stderr io.Writer, codeDir, ref string) (inputDrvs []string, srcs []string, err error) {
 	nixPath, err := exec.LookPath("nix")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find nix on path: %v", err)
@@ -131,7 +132,7 @@ func DerivationShow(stdout, stderr io.Writer, codeDir, ref string) (inputDrvs []
 
 	stdoutBuffer := new(bytes.Buffer)
 
-	cmd := exec.Command(nixPath, "derivation", "show", ref)
+	cmd := exec.CommandContext(ctx, nixPath, "derivation", "show", ref)
 	cmd.Dir = codeDir
 
 	w, closer := ErrorBuffer(stdout, stderr)
@@ -144,9 +145,18 @@ func DerivationShow(stdout, stderr io.Writer, codeDir, ref string) (inputDrvs []
 	return getInputDrvs(stdoutBuffer.Bytes())
 }
 
-type Derivation struct {
-	InputDrvs map[string]any `json:"inputDrvs"`
-	InputSrcs []string       `json:"inputSrcs"`
+type derivationShowOutput struct {
+	Version     int                       `json:"version"`
+	Derivations map[string]derivationInfo `json:"derivations"`
+}
+
+type derivationInfo struct {
+	Inputs derivationInputs `json:"inputs"`
+}
+
+type derivationInputs struct {
+	Drvs map[string]json.RawMessage `json:"drvs"`
+	Srcs []string                   `json:"srcs"`
 }
 
 func normalizeNixStorePath(p string) (string, bool) {
@@ -157,32 +167,30 @@ func normalizeNixStorePath(p string) (string, bool) {
 	if p == "" || filepath.IsAbs(p) {
 		return "", false
 	}
-	// v3 format: basename only (hash-name style).
 	return filepath.Join("/nix/store", p), true
 }
 
 func getInputDrvs(input []byte) (drvs []string, srcs []string, err error) {
-	var m map[string]Derivation
-	err = json.Unmarshal(input, &m)
-	if err != nil {
-		return drvs, srcs, fmt.Errorf("failed to unmarshal derivation: %v", err)
+	var show derivationShowOutput
+	if err = json.Unmarshal(input, &show); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal derivation: %w", err)
 	}
-	var drvKeys []string
-	for k := range m {
-		drvKeys = append(drvKeys, k)
+	if show.Version != 4 {
+		return nil, nil, fmt.Errorf("unsupported derivation JSON format version %d, Nix 2.33 or later required", show.Version)
 	}
-	if len(drvKeys) != 1 {
-		return drvs, srcs, fmt.Errorf("expected exactly one key in the map, got %d", len(drvKeys))
+	if len(show.Derivations) != 1 {
+		return nil, nil, fmt.Errorf("expected exactly one derivation, got %d", len(show.Derivations))
 	}
-	drv := m[drvKeys[0]]
-	for k := range drv.InputDrvs {
-		if path, ok := normalizeNixStorePath(k); ok {
-			drvs = append(drvs, path)
+	for _, drv := range show.Derivations {
+		for k := range drv.Inputs.Drvs {
+			if path, ok := normalizeNixStorePath(k); ok {
+				drvs = append(drvs, path)
+			}
 		}
-	}
-	for _, src := range drv.InputSrcs {
-		if path, ok := normalizeNixStorePath(src); ok {
-			srcs = append(srcs, path)
+		for _, src := range drv.Inputs.Srcs {
+			if path, ok := normalizeNixStorePath(src); ok {
+				srcs = append(srcs, path)
+			}
 		}
 	}
 	slices.Sort(drvs)
@@ -190,7 +198,7 @@ func getInputDrvs(input []byte) (drvs []string, srcs []string, err error) {
 }
 
 // RealiseStorePaths realises store paths and returns their output paths.
-func RealiseStorePaths(stdout, stderr io.Writer, paths ...string) ([]string, error) {
+func RealiseStorePaths(ctx context.Context, stdout, stderr io.Writer, paths ...string) ([]string, error) {
 	if len(paths) == 0 {
 		return []string{}, nil
 	}
@@ -203,7 +211,7 @@ func RealiseStorePaths(stdout, stderr io.Writer, paths ...string) ([]string, err
 	args := []string{"--realise"}
 	args = append(args, paths...)
 
-	cmd := exec.Command(nixStorePath, args...)
+	cmd := exec.CommandContext(ctx, nixStorePath, args...)
 	cmd.Env = getEnv()
 
 	w, closer := ErrorBuffer(stdout, stderr)

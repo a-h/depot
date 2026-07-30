@@ -27,22 +27,23 @@ func (cmd *NixPushCmd) Run(globals *globals.Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
+	ctx, stop := globals.NewContext()
+	defer stop()
+
 	pusher := push.New(log, cmd.Target, globals.NewRoundTripper())
 
 	if cmd.Stdin {
-		return pusher.PushFromStdin()
+		return pusher.PushFromStdin(ctx)
 	}
 
-	// Push flake references.
 	for _, flakeRef := range cmd.FlakeRefs {
-		if err := pusher.PushFlakeReference(flakeRef); err != nil {
+		if err := pusher.PushFlakeReference(ctx, flakeRef); err != nil {
 			return fmt.Errorf("failed to push flake reference %s: %w", flakeRef, err)
 		}
 	}
 
-	// Push store paths.
 	if len(cmd.StorePaths) > 0 {
-		return pusher.PushStorePaths(cmd.StorePaths)
+		return pusher.PushStorePaths(ctx, cmd.StorePaths)
 	}
 
 	if len(cmd.FlakeRefs) == 0 && len(cmd.StorePaths) == 0 && !cmd.Stdin {

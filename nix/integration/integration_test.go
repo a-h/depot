@@ -267,12 +267,12 @@ func TestDepotIntegration(t *testing.T) {
 	server.start(t)
 	t.Cleanup(func() { server.stop(t) })
 
-	slPath, err := Eval(server.nixLogs, server.nixLogs, testPkg)
+	slPath, err := Eval(t.Context(), server.nixLogs, server.nixLogs, testPkg)
 	if err != nil {
 		t.Fatalf("failed to evaluate sl package: %v", err)
 	}
 
-	drvPath, err := Eval(server.nixLogs, server.nixLogs, testPkg+".drvPath")
+	drvPath, err := Eval(t.Context(), server.nixLogs, server.nixLogs, testPkg+".drvPath")
 	if err != nil {
 		t.Fatalf("failed to evaluate sl derivation: %v", err)
 	}
@@ -283,7 +283,7 @@ func TestDepotIntegration(t *testing.T) {
 
 	t.Run("packages can be pushed and verified", func(t *testing.T) {
 		// Copy the package to depot.
-		if err := CopyTo(server.nixLogs, server.nixLogs, ".", depotURL, false, slPath); err != nil {
+		if err := CopyTo(t.Context(), server.nixLogs, server.nixLogs, ".", depotURL, false, slPath); err != nil {
 			t.Fatalf("failed to copy sl package to depot: %v", err)
 		}
 
@@ -333,7 +333,7 @@ func TestDepotIntegration(t *testing.T) {
 
 	t.Run("derivations and build dependencies can be pushed", func(t *testing.T) {
 		// Copy sl derivation to depot.
-		if err := CopyTo(server.nixLogs, server.nixLogs, ".", depotURL, true, drvPath); err != nil {
+		if err := CopyTo(t.Context(), server.nixLogs, server.nixLogs, ".", depotURL, true, drvPath); err != nil {
 			t.Fatalf("failed to copy derivation to depot: %v", err)
 		}
 
@@ -404,7 +404,7 @@ func TestDepotIntegration(t *testing.T) {
 		}
 
 		// Copy the inputs to the sl derivation, and any input sources.
-		inputDerivations, inputSrcs, err := DerivationShow(server.nixLogs, server.nixLogs, ".", slPath)
+		inputDerivations, inputSrcs, err := DerivationShow(t.Context(), server.nixLogs, server.nixLogs, ".", slPath)
 		if err != nil {
 			t.Fatalf("failed to get derivation info: %v", err)
 		}
@@ -414,13 +414,13 @@ func TestDepotIntegration(t *testing.T) {
 		allInputs := append(inputSrcs, inputDerivations...)
 
 		// Realise all input derivations to get their store paths.
-		realisedPaths, err := RealiseStorePaths(server.nixLogs, server.nixLogs, allInputs...)
+		realisedPaths, err := RealiseStorePaths(t.Context(), server.nixLogs, server.nixLogs, allInputs...)
 		if err != nil {
 			t.Fatalf("failed to realise input derivations: %v", err)
 		}
 
 		// Copy all the realised paths to depot.
-		if err := CopyTo(server.nixLogs, server.nixLogs, ".", depotURL, false, realisedPaths...); err != nil {
+		if err := CopyTo(t.Context(), server.nixLogs, server.nixLogs, ".", depotURL, false, realisedPaths...); err != nil {
 			t.Fatalf("failed to copy realised input derivations to depot: %v", err)
 		}
 
@@ -440,7 +440,7 @@ func TestDepotIntegration(t *testing.T) {
 	t.Run("flake sources can be pushed", func(t *testing.T) {
 		// Archive the flake to our depot.
 		flakeRef := "github:NixOS/nixpkgs/8cd5ce828d5d1d16feff37340171a98fc3bf6526"
-		if err := FlakeArchive(server.nixLogs, server.nixLogs, depotURL, flakeRef); err != nil {
+		if err := FlakeArchive(t.Context(), server.nixLogs, server.nixLogs, depotURL, flakeRef); err != nil {
 			t.Fatalf("failed to archive flake to depot: %v", err)
 		}
 
@@ -469,7 +469,7 @@ func TestDepotIntegration(t *testing.T) {
 
 		// Test copying from the depot to a local store.
 		t.Log("Copying package from depot to local store...")
-		if err := CopyFrom(server.nixLogs, server.nixLogs, tempStore, depotURL, slPath, expectedFlakeStorePath); err != nil {
+		if err := CopyFrom(t.Context(), server.nixLogs, server.nixLogs, tempStore, depotURL, slPath, expectedFlakeStorePath); err != nil {
 			t.Fatalf("failed to copy from depot to local store: %v", err)
 		}
 

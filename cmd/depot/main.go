@@ -275,7 +275,10 @@ func (cmd *ProxyCmd) Run(globals *globals.Globals) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, opts))
 
-	return push.RunProxy(log, cmd.Target, cmd.Port, globals.NewRoundTripper())
+	ctx, stop := globals.NewContext()
+	defer stop()
+
+	return push.RunProxy(ctx, log, cmd.Target, cmd.Port, globals.NewRoundTripper())
 }
 
 func main() {
