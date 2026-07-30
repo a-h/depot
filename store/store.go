@@ -65,7 +65,10 @@ func newRqliteStore(dsn string) (store kv.Store, closer func() error, err error)
 	if err != nil {
 		return nil, nil, err
 	}
-	client := rqlitehttp.NewClient(dsn, nil)
+	client, err := rqlitehttp.NewClient(dsn, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	if u.User != nil {
 		pwd, _ := u.User.Password()
 		client.SetBasicAuth(u.User.Username(), pwd)
