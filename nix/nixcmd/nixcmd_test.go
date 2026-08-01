@@ -13,7 +13,7 @@ func TestGetInputDrvsReturnsOnlyNixStorePaths(t *testing.T) {
 		wantError bool
 	}{
 		{
-			name: "basename paths are normalised and non-store paths are excluded",
+			name: "version 4 format: basename paths are normalised and non-store paths are excluded",
 			json: `{
 				"version": 4,
 				"derivations": {
@@ -29,6 +29,24 @@ func TestGetInputDrvsReturnsOnlyNixStorePaths(t *testing.T) {
 							]
 						}
 					}
+				}
+			}`,
+			wantDrvs: []string{"/nix/store/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-foo.drv"},
+			wantSrcs: []string{"/nix/store/cccccccccccccccccccccccccccccccc-source"},
+		},
+		{
+			// Nix < 2.33 (nixos-25.11 ships Nix 2.31) produces an unversioned top-level map.
+			name: "legacy format (Nix < 2.33): basename paths are normalised and non-store paths are excluded",
+			json: `{
+				"/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-example.drv": {
+					"inputDrvs": {
+						"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-foo.drv": ["out"],
+						"/private/tmp/local-builder.sh": []
+					},
+					"inputSrcs": [
+						"cccccccccccccccccccccccccccccccc-source",
+						"/Users/adrian/work/default-builder.sh"
+					]
 				}
 			}`,
 			wantDrvs: []string{"/nix/store/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-foo.drv"},

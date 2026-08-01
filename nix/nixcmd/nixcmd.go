@@ -143,6 +143,7 @@ func DerivationShow(ctx context.Context, stdout, stderr io.Writer, codeDir, ref 
 	return getInputDrvs(stdoutBuffer.Bytes())
 }
 
+// derivationShowOutput is the versioned JSON format produced by `nix derivation show` in Nix >= 2.33.
 type derivationShowOutput struct {
 	Version     int                       `json:"version"`
 	Derivations map[string]derivationInfo `json:"derivations"`
@@ -155,6 +156,12 @@ type derivationInfo struct {
 type derivationInputs struct {
 	Drvs map[string]json.RawMessage `json:"drvs"`
 	Srcs []string                   `json:"srcs"`
+}
+
+// legacyDerivation is the unversioned JSON format produced by `nix derivation show` in Nix < 2.33.
+type legacyDerivation struct {
+	InputDrvs map[string]any `json:"inputDrvs"`
+	InputSrcs []string       `json:"inputSrcs"`
 }
 
 func normalizeNixStorePath(p string) (string, bool) {
@@ -173,9 +180,43 @@ func getInputDrvs(input []byte) (drvs []string, srcs []string, err error) {
 	if err = json.Unmarshal(input, &show); err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal derivation: %w", err)
 	}
-	if show.Version != 4 {
-		return nil, nil, fmt.Errorf("unsupported derivation JSON format version %d, Nix 2.33 or later required", show.Version)
+	switch show.Version {
+	case 0:
+		// Nix < 2.33 (nixos-25.11 ships Nix 2.31): unversioned top-level map format.
+		return getInputDrvsLegacy(input)
+	case 4:
+		// Nix >= 2.33 (nixos-26.05 and later): versioned format with "derivations" key.
+		return getInputDrvsV4(show)
+	default:
+		return nil, nil, fmt.Errorf("unsupported derivation JSON format version %d", show.Version)
 	}
+}
+
+func getInputDrvsLegacy(input []byte) (drvs []string, srcs []string, err error) {
+	var m map[string]legacyDerivation
+	if err = json.Unmarshal(input, &m); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal legacy derivation: %w", err)
+	}
+	if len(m) != 1 {
+		return nil, nil, fmt.Errorf("expected exactly one derivation, got %d", len(m))
+	}
+	for _, drv := range m {
+		for k := range drv.InputDrvs {
+			if path, ok := normalizeNixStorePath(k); ok {
+				drvs = append(drvs, path)
+			}
+		}
+		for _, src := range drv.InputSrcs {
+			if path, ok := normalizeNixStorePath(src); ok {
+				srcs = append(srcs, path)
+			}
+		}
+	}
+	slices.Sort(drvs)
+	return drvs, srcs, nil
+}
+
+func getInputDrvsV4(show derivationShowOutput) (drvs []string, srcs []string, err error) {
 	if len(show.Derivations) != 1 {
 		return nil, nil, fmt.Errorf("expected exactly one derivation, got %d", len(show.Derivations))
 	}
