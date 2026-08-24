@@ -264,8 +264,9 @@ func (cmd *ServeCmd) createStorage(ctx context.Context, log *slog.Logger, prefix
 }
 
 type ProxyCmd struct {
-	Target string `arg:"" help:"Target cache URL to proxy to"`
-	Port   int    `help:"Port to listen on (0 for random port)" default:"43407"`
+	Target   string `arg:"" help:"Target cache URL to proxy to"`
+	Port     int    `help:"Port to listen on (0 for random port)" default:"43407"`
+	Identity string `help:"Path to the SSH key to authenticate with" short:"i" env:"DEPOT_IDENTITY"`
 }
 
 func (cmd *ProxyCmd) Run(globals *globals.Globals) error {
@@ -278,7 +279,7 @@ func (cmd *ProxyCmd) Run(globals *globals.Globals) error {
 	ctx, stop := globals.NewContext()
 	defer stop()
 
-	return push.RunProxy(ctx, log, cmd.Target, cmd.Port, globals.NewRoundTripper())
+	return push.RunProxy(ctx, log, cmd.Target, cmd.Port, globals.NewRoundTripper(), cmd.Identity)
 }
 
 func main() {

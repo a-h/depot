@@ -251,6 +251,23 @@ w ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... deploy@ci
 
 You can fetch public SSH keys from a Github username, by adding `.keys`, e.g. <https://github.com/$GITHUB_USERNAME.keys>
 
+### Supported Key Types
+
+RSA, ECDSA (P-256, P-384, P-521) and ed25519 keys are supported, from `~/.ssh` or from an SSH agent (including `gpg-agent`).
+
+FIDO2 security keys (`sk-ssh-ed25519@openssh.com`, `sk-ecdsa-sha2-nistp256@openssh.com`) and SSH certificates are not supported, because their signatures cannot be verified as JWT signatures.
+
+### Choosing a Key
+
+By default, the `proxy` and `nix push` commands use the first supported key they find, preferring agent keys over key files. Use `-i` / `--identity` (or `DEPOT_IDENTITY`) to choose a key, in the same way as `ssh -i`:
+
+```bash
+depot proxy https://my-cache.example.com -i ~/.ssh/id_ed25519
+depot nix push https://my-cache.example.com -i ~/.ssh/id_ed25519 --flake-refs github:NixOS/nixpkgs#sl
+```
+
+If the private key file cannot be read, because it is encrypted or is held in an agent, the matching public key (`~/.ssh/id_ed25519.pub`) is used to select the key from the agent.
+
 ### Authentication Behavior
 
 - If **any** key has read-only (`r`) permission, **all** access requires authentication

@@ -19,14 +19,16 @@ type Push struct {
 	log       *slog.Logger
 	target    string
 	transport http.RoundTripper
+	identity  string
 }
 
-// New creates a new Push instance.
-func New(log *slog.Logger, target string, transport http.RoundTripper) *Push {
+// New creates a new Push instance. If identity is set, it is the path to the SSH key to authenticate with.
+func New(log *slog.Logger, target string, transport http.RoundTripper, identity string) *Push {
 	return &Push{
 		log:       log,
 		target:    target,
 		transport: transport,
+		identity:  identity,
 	}
 }
 
@@ -36,7 +38,7 @@ func (p *Push) PushStorePaths(ctx context.Context, paths []string) error {
 		return nil
 	}
 
-	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport)
+	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport, p.identity)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
 	}
@@ -65,7 +67,7 @@ func (p *Push) PushStorePaths(ctx context.Context, paths []string) error {
 
 // PushFlakeReference pushes a flake reference to the cache with comprehensive dependencies.
 func (p *Push) PushFlakeReference(ctx context.Context, flakeRef string) error {
-	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport)
+	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport, p.identity)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
 	}
@@ -88,7 +90,7 @@ func (p *Push) PushFlakeReference(ctx context.Context, flakeRef string) error {
 
 // PushFromStdin reads store paths and flake references from stdin and pushes them.
 func (p *Push) PushFromStdin(ctx context.Context) error {
-	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport)
+	addr, cleanup, err := proxy.StartProxy(p.log, p.target, p.transport, p.identity)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
 	}
@@ -206,8 +208,8 @@ func (p *Push) pushFlakeComprehensive(ctx context.Context, proxyURL, flakeRef st
 }
 
 // RunProxy runs a proxy command with simple logging, blocking until ctx is cancelled.
-func RunProxy(ctx context.Context, log *slog.Logger, target string, port int, transport http.RoundTripper) error {
-	proxyAddr, cleanup, err := proxy.StartProxyOnPort(log, target, transport, port)
+func RunProxy(ctx context.Context, log *slog.Logger, target string, port int, transport http.RoundTripper, identity string) error {
+	proxyAddr, cleanup, err := proxy.StartProxyOnPort(log, target, transport, port, identity)
 	if err != nil {
 		return fmt.Errorf("failed to start proxy: %w", err)
 	}

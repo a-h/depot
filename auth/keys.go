@@ -65,6 +65,52 @@ func DiscoverSSHKeys(log *slog.Logger) (out []KeyInfo, err error) {
 	return out, nil
 }
 
+// LoadIdentity loads the key at path, falling back to a matching key from an agent if the private key
+// cannot be read, in the same way as ssh -i.
+func LoadIdentity(log *slog.Logger, path string) (ssh.Signer, error) {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		path = filepath.Join(home, strings.TrimPrefix(path, "~/"))
+	}
+
+	publicKeyPath := path
+	if !strings.HasSuffix(path, ".pub") {
+		signer, err := loadPrivateKey(path)
+		if err == nil {
+			log.Debug("loaded identity from private key file", slog.String("path", path))
+			return signer, nil
+		}
+		log.Debug("failed to load private key, looking for a matching key in the agent", slog.String("path", path), slog.Any("error", err))
+		publicKeyPath = path + ".pub"
+	}
+
+	data, err := os.ReadFile(publicKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read identity %s: %w", path, err)
+	}
+	publicKey, _, _, _, err := ssh.ParseAuthorizedKey(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse identity %s: %w", path, err)
+	}
+
+	fingerprint := ssh.FingerprintSHA256(publicKey)
+	keys, err := DiscoverSSHKeys(log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover SSH keys: %w", err)
+	}
+	for _, keyInfo := range keys {
+		if keyInfo.Fingerprint == fingerprint && keyInfo.Signer != nil {
+			log.Debug("loaded identity", slog.String("path", publicKeyPath), slog.String("source", keyInfo.Source))
+			return keyInfo.Signer, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no private key or agent key found for identity %s", path)
+}
+
 // listAgentKeys lists SSH keys from ssh-agent.
 func listAgentKeys(sock string) (out []KeyInfo, err error) {
 	conn, err := net.Dial("unix", sock)
@@ -221,17 +267,35 @@ func loadPrivateKey(path string) (ssh.Signer, error) {
 	return signer, nil
 }
 
-// agentSigner implements ssh.Signer using ssh-agent.
+// agentSigner implements ssh.AlgorithmSigner using ssh-agent, so that RSA keys can be signed with
+// SHA-256 instead of the SSH default of SHA-1.
 type agentSigner struct {
 	socket    string
 	publicKey ssh.PublicKey
 }
+
+var _ ssh.AlgorithmSigner = (*agentSigner)(nil)
 
 func (s *agentSigner) PublicKey() ssh.PublicKey {
 	return s.publicKey
 }
 
 func (s *agentSigner) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) {
+	return s.SignWithAlgorithm(rand, data, s.publicKey.Type())
+}
+
+func (s *agentSigner) SignWithAlgorithm(rand io.Reader, data []byte, algorithm string) (*ssh.Signature, error) {
+	var flags agent.SignatureFlags
+	switch algorithm {
+	case "", s.publicKey.Type():
+	case ssh.KeyAlgoRSASHA256:
+		flags = agent.SignatureFlagRsaSha256
+	case ssh.KeyAlgoRSASHA512:
+		flags = agent.SignatureFlagRsaSha512
+	default:
+		return nil, fmt.Errorf("unsupported signature algorithm: %s", algorithm)
+	}
+
 	// Reconnect to agent for each signature to avoid connection lifecycle issues.
 	conn, err := net.Dial("unix", s.socket)
 	if err != nil {
@@ -239,6 +303,5 @@ func (s *agentSigner) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) 
 	}
 	defer conn.Close()
 
-	ac := agent.NewClient(conn)
-	return ac.Sign(s.publicKey, data)
+	return agent.NewClient(conn).SignWithFlags(s.publicKey, data, flags)
 }

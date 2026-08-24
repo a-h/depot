@@ -1,9 +1,7 @@
 package proxy
 
 import (
-	"crypto"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -22,15 +20,16 @@ type Server struct {
 	jwtToken string
 }
 
-// NewServer creates a new proxy server that forwards requests to the target URL.
-func NewServer(log *slog.Logger, targetURL string, transport http.RoundTripper) (*Server, error) {
+// NewServer creates a new proxy server that forwards requests to the target URL. If identity is set,
+// it is the path to the SSH key to authenticate with, otherwise the first usable key is used.
+func NewServer(log *slog.Logger, targetURL string, transport http.RoundTripper, identity string) (*Server, error) {
 	target, err := url.Parse(targetURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid target URL: %w", err)
 	}
 
 	// Create JWT token from available SSH keys.
-	jwtToken, err := createJWTFromSSHKeys(log)
+	jwtToken, err := createJWTFromSSHKeys(log, identity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create JWT token: %w", err)
 	}
@@ -69,13 +68,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // StartProxy starts a proxy server on a random port and returns the address.
-func StartProxy(log *slog.Logger, targetURL string, transport http.RoundTripper) (string, func(), error) {
-	return StartProxyOnPort(log, targetURL, transport, 0)
+func StartProxy(log *slog.Logger, targetURL string, transport http.RoundTripper, identity string) (string, func(), error) {
+	return StartProxyOnPort(log, targetURL, transport, 0, identity)
 }
 
 // StartProxyOnPort starts a proxy server on the specified port and returns the address.
-func StartProxyOnPort(log *slog.Logger, targetURL string, transport http.RoundTripper, port int) (string, func(), error) {
-	server, err := NewServer(log, targetURL, transport)
+func StartProxyOnPort(log *slog.Logger, targetURL string, transport http.RoundTripper, port int, identity string) (string, func(), error) {
+	server, err := NewServer(log, targetURL, transport, identity)
 	if err != nil {
 		return "", nil, err
 	}
@@ -108,7 +107,19 @@ func StartProxyOnPort(log *slog.Logger, targetURL string, transport http.RoundTr
 }
 
 // createJWTFromSSHKeys discovers SSH keys and creates a JWT token.
-func createJWTFromSSHKeys(log *slog.Logger) (string, error) {
+func createJWTFromSSHKeys(log *slog.Logger, identity string) (string, error) {
+	if identity != "" {
+		signer, err := auth.LoadIdentity(log, identity)
+		if err != nil {
+			return "", err
+		}
+		if !auth.IsSupportedKeyType(signer.PublicKey()) {
+			return "", fmt.Errorf("identity %s uses unsupported key type %s", identity, signer.PublicKey().Type())
+		}
+		log.Info("using SSH key for authentication", slog.String("fingerprint", ssh.FingerprintSHA256(signer.PublicKey())), slog.String("identity", identity))
+		return auth.CreateJWT(signer)
+	}
+
 	keys, err := auth.DiscoverSSHKeys(log)
 	if err != nil {
 		return "", fmt.Errorf("failed to discover SSH keys: %w", err)
@@ -129,20 +140,13 @@ func createJWTFromSSHKeys(log *slog.Logger) (string, error) {
 
 		// Check if this is a supported key type for JWT signing.
 		pubKey := keyInfo.Signer.PublicKey()
-		if !isSupportedKeyType(pubKey) {
+		if !auth.IsSupportedKeyType(pubKey) {
 			log.Debug("skipping unsupported key type", slog.String("type", pubKey.Type()), slog.String("fingerprint", keyInfo.Fingerprint))
 			continue
 		}
 
-		// Try to create a crypto.Signer from the SSH signer.
-		cryptoSigner, err := sshSignerToCryptoSigner(keyInfo.Signer)
-		if err != nil {
-			log.Debug("failed to convert SSH signer to crypto signer", slog.String("error", err.Error()), slog.String("fingerprint", keyInfo.Fingerprint))
-			continue
-		}
-
 		// Create JWT token.
-		token, err := auth.CreateJWT(cryptoSigner, pubKey)
+		token, err := auth.CreateJWT(keyInfo.Signer)
 		if err != nil {
 			log.Debug("failed to create JWT", slog.String("error", err.Error()), slog.String("fingerprint", keyInfo.Fingerprint))
 			continue
@@ -153,45 +157,4 @@ func createJWTFromSSHKeys(log *slog.Logger) (string, error) {
 	}
 
 	return "", fmt.Errorf("no usable SSH keys found for JWT signing")
-}
-
-// isSupportedKeyType checks if the SSH key type is supported for JWT signing.
-func isSupportedKeyType(pubKey ssh.PublicKey) bool {
-	switch pubKey.Type() {
-	case ssh.KeyAlgoRSA, ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521:
-		return true
-	default:
-		return false
-	}
-}
-
-// sshSignerToCryptoSigner converts an SSH signer to a crypto.Signer.
-func sshSignerToCryptoSigner(sshSigner ssh.Signer) (crypto.Signer, error) {
-	// For SSH signers, we need to create a wrapper.
-	return &cryptoSignerWrapper{sshSigner: sshSigner}, nil
-}
-
-// cryptoSignerWrapper wraps an SSH signer to implement crypto.Signer.
-type cryptoSignerWrapper struct {
-	sshSigner ssh.Signer
-}
-
-func (w *cryptoSignerWrapper) Public() crypto.PublicKey {
-	// Extract the crypto public key from the SSH public key.
-	sshPubKey := w.sshSigner.PublicKey()
-	cryptoPubKey, err := auth.ExtractCryptoPublicKey(sshPubKey)
-	if err != nil {
-		// This shouldn't happen if we validated the key type earlier.
-		panic(fmt.Sprintf("failed to extract crypto public key: %v", err))
-	}
-	return cryptoPubKey
-}
-
-func (w *cryptoSignerWrapper) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
-	// Use the SSH signer to sign.
-	signature, err := w.sshSigner.Sign(rand, digest)
-	if err != nil {
-		return nil, err
-	}
-	return signature.Blob, nil
 }

@@ -15,6 +15,7 @@ type NixCmd struct {
 
 type NixPushCmd struct {
 	Target     string   `arg:"" help:"Target cache URL to push to"`
+	Identity   string   `help:"Path to the SSH key to authenticate with" short:"i" env:"DEPOT_IDENTITY"`
 	Stdin      bool     `help:"Read store paths and flake references from stdin" default:"false"`
 	FlakeRefs  []string `help:"Flake references to push"`
 	StorePaths []string `help:"Store paths to push"`
@@ -30,7 +31,7 @@ func (cmd *NixPushCmd) Run(globals *globals.Globals) error {
 	ctx, stop := globals.NewContext()
 	defer stop()
 
-	pusher := push.New(log, cmd.Target, globals.NewRoundTripper())
+	pusher := push.New(log, cmd.Target, globals.NewRoundTripper(), cmd.Identity)
 
 	if cmd.Stdin {
 		return pusher.PushFromStdin(ctx)
