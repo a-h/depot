@@ -457,20 +457,18 @@ func TestDepotIntegration(t *testing.T) {
 
 	t.Run("packages can be copied from depot to local store", func(t *testing.T) {
 		// Create a temporary local store directory.
-		home, err := os.UserHomeDir()
-		if err != nil {
-			t.Fatalf("failed to get user home directory: %v", err)
-		}
-		tempStore, err := os.MkdirTemp(home, "depot-test-store-*")
-		if err != nil {
-			t.Fatalf("failed to create temp store: %v", err)
-		}
-		defer os.RemoveAll(tempStore)
+		tempStore := t.TempDir()
 
 		// Test copying from the depot to a local store.
 		t.Log("Copying package from depot to local store...")
 		if err := CopyFrom(t.Context(), server.nixLogs, server.nixLogs, tempStore, depotURL, slPath, expectedFlakeStorePath); err != nil {
 			t.Fatalf("failed to copy from depot to local store: %v", err)
+		}
+
+		// Nix creates read-only store directories, which cannot be deleted by the test cleanup until
+		// they are made writable.
+		if err := makeWritable(tempStore); err != nil {
+			t.Fatalf("failed to make the temp store writable: %v", err)
 		}
 
 		// Get narinfo for dependencies.
@@ -531,4 +529,24 @@ func TestDepotIntegration(t *testing.T) {
 			t.Errorf("nix-cache-info should contain our test public key")
 		}
 	})
+}
+
+// makeWritable makes dir and the directories within it writable, so that they can be deleted.
+func makeWritable(dir string) error {
+	if err := os.Chmod(dir, 0700); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		if err = makeWritable(filepath.Join(dir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }
