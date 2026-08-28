@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/a-h/kv v0.0.0-20260730155150-9cc1a1dfa5cd
+	github.com/a-h/templ v0.3.1020
 	github.com/alecthomas/kong v1.16.0
 	github.com/aquasecurity/go-pep440-version v0.0.1
 	github.com/aws/aws-sdk-go-v2 v1.43.2
@@ -19,6 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/rqlite/rqlite-go-http v0.0.0-20260505125655-87e042b65a23
 	github.com/ulikunitz/xz v0.5.15
+	github.com/yuin/goldmark v1.8.5
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.66.0
 	go.opentelemetry.io/otel/metric v1.44.0

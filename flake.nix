@@ -9,13 +9,17 @@
       url = "github:a-h/version";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    templ = {
+      url = "github:a-h/templ/v0.3.1020";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     xc = {
       url = "github:joerdav/xc";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, gitignore, version, xc, }:
+  outputs = { self, nixpkgs, gitignore, templ, version, xc, }:
     let
       allSystems = [
         "x86_64-linux" # 64-bit Intel/AMD Linux
@@ -32,6 +36,7 @@
             (final: prev: {
               xc = xc.outputs.packages.${system}.xc;
               version = version.outputs.packages.${system}.default;
+              templ = templ.outputs.packages.${system}.templ;
               python3WithPip = prev.python3.withPackages (ps: [
                 ps.pip
               ]);
@@ -47,7 +52,7 @@
         pname = name;
         version = v;
         src = gitignore.lib.gitignoreSource ./.;
-        vendorHash = "sha256-k6wKNOWp4adfmxhcZNN/TCBWiJ5O5nsMOG/KTtj9s1c=";
+        vendorHash = "sha256-5zOv8yiUPN47QJzhHw56+hHM7dQj0u0C02xfT5lrKGQ=";
         subPackages = [ "cmd/${name}" ];
         ldflags = [
           "-s"
@@ -96,6 +101,7 @@
         pkgs.gh
         pkgs.git
         pkgs.go
+        pkgs.templ
         pkgs.version
         pkgs.xc
 

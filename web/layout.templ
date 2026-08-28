@@ -1,0 +1,334 @@
+package web
+
+templ layout(title string, currentPath string, body templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title } — Depot</title>
+			<style>
+				*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+				body {
+					font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+					font-size: 16px;
+					line-height: 1.6;
+					color: #1a1a1a;
+					background: #f8f8f8;
+					display: flex;
+					flex-direction: column;
+					min-height: 100vh;
+				}
+
+				header {
+					background: #1a1a1a;
+					color: #fff;
+					padding: 1rem 1.5rem;
+					display: flex;
+					align-items: baseline;
+					gap: 1rem;
+					flex-shrink: 0;
+				}
+
+				header a.logo {
+					color: #fff;
+					text-decoration: none;
+					font-size: 1.1rem;
+					font-weight: 700;
+					letter-spacing: -0.01em;
+				}
+
+				header span.tagline {
+					color: #888;
+					font-size: 0.85rem;
+				}
+
+				.layout {
+					display: flex;
+					flex: 1;
+					min-height: 0;
+				}
+
+				nav.sidebar {
+					width: 220px;
+					flex-shrink: 0;
+					background: #fff;
+					border-right: 1px solid #e5e5e5;
+					padding: 1.5rem 0;
+					display: flex;
+					flex-direction: column;
+				}
+
+				nav.sidebar .nav-section {
+					font-size: 0.7rem;
+					font-weight: 700;
+					letter-spacing: 0.08em;
+					text-transform: uppercase;
+					color: #999;
+					padding: 0.75rem 1.25rem 0.35rem;
+				}
+
+				nav.sidebar a.nav-link {
+					display: block;
+					padding: 0.35rem 1.25rem;
+					font-size: 0.875rem;
+					color: #444;
+					text-decoration: none;
+					border-left: 3px solid transparent;
+				}
+
+				nav.sidebar a.nav-link:hover {
+					color: #1a1a1a;
+					background: #f4f4f4;
+				}
+
+				nav.sidebar a.nav-link.active {
+					color: #1a1a1a;
+					font-weight: 600;
+					border-left-color: #1a1a1a;
+					background: #f4f4f4;
+				}
+
+				main.content {
+					flex: 1;
+					padding: 2rem 2.5rem;
+					max-width: 820px;
+					min-width: 0;
+				}
+
+				main.content h1 {
+					font-size: 1.6rem;
+					font-weight: 700;
+					letter-spacing: -0.02em;
+					margin-bottom: 0.5rem;
+				}
+
+				main.content h2 {
+					font-size: 1.1rem;
+					font-weight: 600;
+					margin-top: 2rem;
+					margin-bottom: 0.5rem;
+					padding-bottom: 0.3rem;
+					border-bottom: 1px solid #e5e5e5;
+				}
+
+				main.content h3 {
+					font-size: 0.95rem;
+					font-weight: 600;
+					margin-top: 1.25rem;
+					margin-bottom: 0.35rem;
+					color: #555;
+				}
+
+				main.content p {
+					color: #333;
+					margin-bottom: 0.75rem;
+				}
+
+				main.content ul, main.content ol {
+					margin: 0.5rem 0 0.75rem 1.5rem;
+					color: #333;
+				}
+
+				main.content li {
+					margin-bottom: 0.25rem;
+				}
+
+				main.content pre {
+					background: #1a1a1a;
+					color: #e8e8e8;
+					border-radius: 5px;
+					padding: 1rem 1.25rem;
+					font-size: 0.82rem;
+					font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+					overflow-x: auto;
+					line-height: 1.55;
+					margin: 0.5rem 0 1rem;
+				}
+
+				main.content code {
+					font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+					font-size: 0.83em;
+					background: #f0f0f0;
+					border: 1px solid #e0e0e0;
+					border-radius: 3px;
+					padding: 0.1em 0.35em;
+				}
+
+				main.content pre code {
+					background: none;
+					border: none;
+					padding: 0;
+					font-size: inherit;
+					color: inherit;
+				}
+
+				main.content blockquote {
+					border-left: 3px solid #d0d0d0;
+					margin: 0.75rem 0;
+					padding: 0.5rem 1rem;
+					color: #555;
+					background: #fafafa;
+				}
+
+				main.content a {
+					color: #0066cc;
+					text-decoration: none;
+				}
+
+				main.content a:hover {
+					text-decoration: underline;
+				}
+
+				main.content table {
+					border-collapse: collapse;
+					width: 100%;
+					margin-bottom: 1rem;
+					font-size: 0.875rem;
+				}
+
+				main.content th, main.content td {
+					text-align: left;
+					padding: 0.5rem 0.75rem;
+					border: 1px solid #e5e5e5;
+				}
+
+				main.content th {
+					background: #f4f4f4;
+					font-weight: 600;
+				}
+
+				details.mobile-nav {
+					display: none;
+				}
+
+				details.mobile-nav summary.hamburger {
+					list-style: none;
+					display: flex;
+					align-items: center;
+					gap: 0.6rem;
+					padding: 0.75rem 1.25rem;
+					cursor: pointer;
+					font-size: 0.875rem;
+					font-weight: 600;
+					color: #1a1a1a;
+					border-bottom: 1px solid #e5e5e5;
+					background: #fff;
+					user-select: none;
+				}
+
+				details.mobile-nav summary.hamburger::-webkit-details-marker,
+				details.mobile-nav summary.hamburger::marker {
+					display: none;
+				}
+
+				details.mobile-nav[open] summary.hamburger {
+					border-bottom-color: transparent;
+				}
+
+				details.mobile-nav nav {
+					background: #fff;
+					border-bottom: 1px solid #e5e5e5;
+				}
+
+				details.mobile-nav a.nav-link {
+					display: block;
+					padding: 0.5rem 1.25rem;
+					font-size: 0.875rem;
+					color: #444;
+					text-decoration: none;
+					border-left: 3px solid transparent;
+				}
+
+				details.mobile-nav a.nav-link:hover {
+					color: #1a1a1a;
+					background: #f4f4f4;
+				}
+
+				details.mobile-nav a.nav-link.active {
+					color: #1a1a1a;
+					font-weight: 600;
+					border-left-color: #1a1a1a;
+					background: #f4f4f4;
+				}
+
+				@media (max-width: 640px) {
+					header {
+						padding: 0.75rem 1rem;
+					}
+
+					header span.tagline {
+						display: none;
+					}
+
+					.layout {
+						flex-direction: column;
+					}
+
+					nav.sidebar {
+						display: none;
+					}
+
+					details.mobile-nav {
+						display: block;
+						width: 100%;
+					}
+
+					details.mobile-nav summary.hamburger {
+						padding: 0.75rem 1rem;
+					}
+
+					details.mobile-nav a.nav-link {
+						padding: 0.5rem 1rem;
+					}
+
+					main.content {
+						padding: 1.25rem 1rem;
+					}
+
+					main.content pre {
+						font-size: 0.78rem;
+					}
+				}
+			</style>
+		</head>
+		<body>
+			<header>
+				<a class="logo" href="/">Depot</a>
+				<span class="tagline">Package registry for Go, Python, Nix, and NPM.</span>
+			</header>
+			<div class="layout">
+				<details class="mobile-nav">
+					<summary class="hamburger"><span aria-hidden="true">☰</span><span>{ title }</span></summary>
+					<nav>
+						for _, item := range navItems {
+							if item.Path == currentPath {
+								<a class="nav-link active" href={ item.Path }>{ item.Title }</a>
+							} else {
+								<a class="nav-link" href={ item.Path }>{ item.Title }</a>
+							}
+						}
+					</nav>
+				</details>
+				<nav class="sidebar">
+					<span class="nav-section">Documentation</span>
+					for _, item := range navItems {
+						if item.Path == currentPath {
+							<a class="nav-link active" href={ item.Path }>{ item.Title }</a>
+						} else {
+							<a class="nav-link" href={ item.Path }>{ item.Title }</a>
+						}
+					}
+				</nav>
+				<main class="content">
+					@body
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+templ docPage(title, currentPath, htmlContent string) {
+	@layout(title, currentPath, templ.Raw(htmlContent))
+}

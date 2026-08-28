@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/a-h/depot/accesslog"
@@ -115,6 +116,7 @@ type ServeCmd struct {
 	ListenAddr        string  `help:"Address to listen on" default:":8080" env:"DEPOT_LISTEN_ADDR"`
 	MetricsListenAddr string  `help:"Address for metrics endpoint" default:":9090" env:"DEPOT_METRICS_LISTEN_ADDR"`
 	StorePath         string  `help:"Path to file store" default:"" env:"DEPOT_STORE_PATH"`
+	BaseURL           string  `help:"Public base URL of this depot instance (e.g. https://depot.example.com)" env:"DEPOT_BASE_URL"`
 	AuthFile          string  `help:"Path to SSH public keys auth file (format: r/w ssh-key comment)" env:"DEPOT_AUTH_FILE"`
 	PrivateKey        string  `help:"Path to private key file for signing narinfo files" env:"DEPOT_PRIVATE_KEY"`
 	StorageType       string  `help:"Storage backend type (fs or s3)" default:"fs" enum:"fs,s3" env:"DEPOT_STORAGE_TYPE"`
@@ -212,14 +214,27 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 	}
 
 	cfg := routes.HandlerConfig{
-		GoMod:  routes.PackageHandlerConfig[*gomoddb.DB]{DB: gomoddb.New(store), Storage: goStorage},
-		Nix:    routes.NixHandlerConfig{DB: nixdb.New(store), Storage: nixStorage, PrivateKey: privateKey},
-		NPM:    routes.PackageHandlerConfig[*npmdb.DB]{DB: npmdb.New(store), Storage: npmStorage},
-		Python: routes.PythonHandlerConfig{DB: pythondb.New(store), Storage: pythonStorage, BaseURL: "http://localhost:8080/python"},
+		GoMod: routes.PackageHandlerConfig[*gomoddb.DB]{DB: gomoddb.New(store), Storage: goStorage},
+		Nix: routes.NixHandlerConfig{
+			PackageHandlerConfig: routes.PackageHandlerConfig[*nixdb.DB]{DB: nixdb.New(store), Storage: nixStorage},
+			PrivateKey:           privateKey,
+		},
+		NPM: routes.NPMHandlerConfig{
+			PackageHandlerConfig: routes.PackageHandlerConfig[*npmdb.DB]{DB: npmdb.New(store), Storage: npmStorage},
+			BaseURL:              cmd.BaseURL,
+		},
+		Python: routes.PythonHandlerConfig{
+			PackageHandlerConfig: routes.PackageHandlerConfig[*pythondb.DB]{DB: pythondb.New(store), Storage: pythonStorage},
+			BaseURL:              strings.TrimSuffix(cmd.BaseURL, "/") + "/python",
+		},
+	}
+	handler, err := routes.New(log, cfg, authConfig, metrics)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP handler: %w", err)
 	}
 	s := http.Server{
 		Addr:    cmd.ListenAddr,
-		Handler: routes.New(log, cfg, authConfig, metrics),
+		Handler: handler,
 	}
 	log.Info("starting server", slog.String("addr", cmd.ListenAddr), slog.String("metricsAddr", cmd.MetricsListenAddr), slog.String("storePath", cmd.StorePath))
 	err = s.ListenAndServe()

@@ -12,8 +12,8 @@ import (
 	"github.com/a-h/depot/storage"
 )
 
-func New(log *slog.Logger, db *db.DB, storage storage.Storage, metrics metrics.Metrics) http.Handler {
-	mh := metadata.New(log, db)
+func New(log *slog.Logger, db *db.DB, storage storage.Storage, baseURL string, metrics metrics.Metrics) http.Handler {
+	mh := metadata.New(log, db, baseURL)
 	th := tarball.New(log, storage, metrics)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

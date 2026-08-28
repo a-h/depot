@@ -5,22 +5,40 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/a-h/depot/npm/db"
 	"github.com/a-h/depot/npm/models"
 )
 
-func New(log *slog.Logger, db *db.DB) Handler {
+func New(log *slog.Logger, db *db.DB, baseURL string) Handler {
 	return Handler{
-		log: log,
-		db:  db,
+		log:     log,
+		db:      db,
+		baseURL: strings.TrimSuffix(baseURL, "/"),
 	}
 }
 
 type Handler struct {
-	log *slog.Logger
-	db  *db.DB
+	log     *slog.Logger
+	db      *db.DB
+	baseURL string
+}
+
+// rewriteTarballURL replaces the origin of tarballURL with the configured base URL,
+// keeping the path intact. For example, "https://registry.npmjs.org/express/-/express-4.18.2.tgz"
+// becomes "https://depot.example.com/express/-/express-4.18.2.tgz". If the base URL
+// is unset or the URL cannot be parsed, tarballURL is returned unchanged.
+func (h Handler) rewriteTarballURL(tarballURL string) string {
+	if h.baseURL == "" {
+		return tarballURL
+	}
+	u, err := url.Parse(tarballURL)
+	if err != nil || u.Path == "" {
+		return tarballURL
+	}
+	return h.baseURL + u.Path
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +82,12 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "package not found", http.StatusNotFound)
 			return
 		}
+		for version, v := range metadata.Versions {
+			if v.Dist != nil {
+				v.Dist.Tarball = h.rewriteTarballURL(v.Dist.Tarball)
+				metadata.Versions[version] = v
+			}
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(metadata); err != nil {
 			h.log.Error("failed to encode metadata", slog.String("package", fullPkgName), slog.Any("error", err))
@@ -94,6 +118,9 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "latest version not found", http.StatusNotFound)
 			return
 		}
+		if versionMetadata.Dist != nil {
+			versionMetadata.Dist.Tarball = h.rewriteTarballURL(versionMetadata.Dist.Tarball)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(versionMetadata); err != nil {
 			h.log.Error("failed to encode version metadata", slog.String("package", fullPkgName), slog.String("version", latestVersion), slog.Any("error", err))
@@ -112,6 +139,9 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		http.Error(w, "version not found", http.StatusNotFound)
 		return
+	}
+	if versionMetadata.Dist != nil {
+		versionMetadata.Dist.Tarball = h.rewriteTarballURL(versionMetadata.Dist.Tarball)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(versionMetadata); err != nil {

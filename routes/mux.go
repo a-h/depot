@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -17,6 +18,7 @@ import (
 	pythondb "github.com/a-h/depot/python/db"
 	pythonhandler "github.com/a-h/depot/python/handlers"
 	"github.com/a-h/depot/storage"
+	"github.com/a-h/depot/web"
 	"github.com/nix-community/go-nix/pkg/narinfo/signature"
 )
 
@@ -24,7 +26,7 @@ import (
 type HandlerConfig struct {
 	GoMod  PackageHandlerConfig[*gomoddb.DB]
 	Nix    NixHandlerConfig
-	NPM    PackageHandlerConfig[*npmdb.DB]
+	NPM    NPMHandlerConfig
 	Python PythonHandlerConfig
 }
 
@@ -36,20 +38,30 @@ type PackageHandlerConfig[T any] struct {
 
 // NixHandlerConfig extends PackageHandlerConfig with Nix-specific options.
 type NixHandlerConfig struct {
-	DB         *nixdb.DB
-	Storage    storage.Storage
+	PackageHandlerConfig[*nixdb.DB]
 	PrivateKey *signature.SecretKey
+}
+
+// NPMHandlerConfig extends PackageHandlerConfig with NPM-specific options.
+type NPMHandlerConfig struct {
+	PackageHandlerConfig[*npmdb.DB]
+	BaseURL string
 }
 
 // PythonHandlerConfig extends PackageHandlerConfig with Python-specific options.
 type PythonHandlerConfig struct {
-	DB      *pythondb.DB
-	Storage storage.Storage
+	PackageHandlerConfig[*pythondb.DB]
 	BaseURL string
 }
 
-func New(log *slog.Logger, cfg HandlerConfig, authConfig *auth.AuthConfig, metrics metrics.Metrics) http.Handler {
+func New(log *slog.Logger, cfg HandlerConfig, authConfig *auth.AuthConfig, metrics metrics.Metrics) (http.Handler, error) {
 	mux := http.NewServeMux()
+
+	webh, err := web.New(log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create web handler: %w", err)
+	}
+	mux.Handle("/", webh)
 
 	goh := gomodhandler.New(log, cfg.GoMod.DB, cfg.GoMod.Storage, metrics)
 	mux.Handle("/go/", http.StripPrefix("/go", goh))
@@ -57,12 +69,12 @@ func New(log *slog.Logger, cfg HandlerConfig, authConfig *auth.AuthConfig, metri
 	nih := nixhandler.New(log, cfg.Nix.DB, cfg.Nix.Storage, cfg.Nix.PrivateKey, metrics)
 	mux.Handle("/nix/", http.StripPrefix("/nix", nih))
 
-	npmh := npmhandler.New(log, cfg.NPM.DB, cfg.NPM.Storage, metrics)
+	npmh := npmhandler.New(log, cfg.NPM.DB, cfg.NPM.Storage, cfg.NPM.BaseURL, metrics)
 	mux.Handle("/npm/", http.StripPrefix("/npm", npmh))
 
 	pythonh := pythonhandler.New(log, cfg.Python.DB, cfg.Python.Storage, cfg.Python.BaseURL, metrics)
 	mux.Handle("/python/", http.StripPrefix("/python", pythonh))
 
 	authHandler := authmiddleware.New(log, authConfig, mux)
-	return logger.New(log, authHandler)
+	return logger.New(log, authHandler), nil
 }
