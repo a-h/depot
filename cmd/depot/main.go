@@ -213,6 +213,11 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 		return err
 	}
 
+	var pythonBaseURL string
+	if cmd.BaseURL != "" {
+		pythonBaseURL = strings.TrimSuffix(cmd.BaseURL, "/") + "/python"
+	}
+
 	cfg := routes.HandlerConfig{
 		GoMod: routes.PackageHandlerConfig[*gomoddb.DB]{DB: gomoddb.New(store), Storage: goStorage},
 		Nix: routes.NixHandlerConfig{
@@ -225,7 +230,7 @@ func (cmd *ServeCmd) Run(globals *globals.Globals) error {
 		},
 		Python: routes.PythonHandlerConfig{
 			PackageHandlerConfig: routes.PackageHandlerConfig[*pythondb.DB]{DB: pythondb.New(store), Storage: pythonStorage},
-			BaseURL:              strings.TrimSuffix(cmd.BaseURL, "/") + "/python",
+			BaseURL:              pythonBaseURL,
 		},
 	}
 	handler, err := routes.New(log, cfg, authConfig, metrics)
