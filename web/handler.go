@@ -15,6 +15,9 @@ import (
 //go:embed content
 var contentFS embed.FS
 
+//go:embed static
+var staticFS embed.FS
+
 var md = goldmark.New(
 	goldmark.WithExtensions(extension.GFM),
 )
@@ -29,6 +32,10 @@ func New(log *slog.Logger) (http.Handler, error) {
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/favicon.svg" {
+		h.serveStatic(w, r, "static/favicon.svg", "image/svg+xml")
+		return
+	}
 	for _, item := range navItems {
 		if r.URL.Path == item.Path {
 			h.servePage(w, r, item)
@@ -36,6 +43,17 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.NotFound(w, r)
+}
+
+func (h *handler) serveStatic(w http.ResponseWriter, r *http.Request, file, contentType string) {
+	data, err := staticFS.ReadFile(file)
+	if err != nil {
+		h.log.Error("failed to read static file", slog.String("file", file), slog.Any("error", err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Write(data)
 }
 
 func (h *handler) servePage(w http.ResponseWriter, r *http.Request, item navItem) {
